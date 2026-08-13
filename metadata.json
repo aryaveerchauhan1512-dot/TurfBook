@@ -1,0 +1,6 @@
+{
+  "name": "TurfBook",
+  "description": "Modern sports turf booking platform with real-time slot booking, owner approvals, and admin controls.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

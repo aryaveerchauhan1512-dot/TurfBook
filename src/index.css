@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .bg-primary {
+    background-color: #2E7D32;
+  }
+  .bg-secondary {
+    background-color: #43A047;
+  }
+  .text-primary {
+    color: #2E7D32;
+  }
+  .border-primary {
+    border-color: #2E7D32;
+  }
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  .sport-tab {
+    transition: all 0.2s ease;
+    border-bottom: 2px solid transparent;
+  }
+  .sport-tab:hover,
+  .sport-tab.active {
+    border-bottom: 2px solid #2E7D32;
+    color: #2E7D32;
+  }
+  .turf-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .turf-card:hover {
+    transform: translateY(-4px);
+  }
+}
