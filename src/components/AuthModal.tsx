@@ -68,6 +68,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Robust API request helper
+  const requestApi = async (url: string, body: any) => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error(
+        res.ok ? 'Unexpected server response format.' : 'Server processing error. Please try again.'
+      );
+    }
+
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'Request failed.');
+    }
+
+    return data;
+  };
+
   // Send OTP
   const handleSendOtp = async () => {
     setError(null);
@@ -79,22 +104,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch (e) {
-        throw new Error('Server returned invalid response. Please try again.');
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to send OTP.');
-      }
+      const data = await requestApi('/api/auth/send-otp', { email: email.trim() });
 
       setOtpSent(true);
       if (data.emailSent) {
@@ -107,12 +117,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       setInfoMessage(`Verification OTP code generated.`);
     } catch (err: any) {
-      const msg = err?.message || '';
-      if (msg.toLowerCase().includes('pattern') || msg.toLowerCase().includes('match')) {
-        setError('Please enter a valid email address.');
-      } else {
-        setError(msg || 'Failed to send OTP code.');
-      }
+      setError(err?.message || 'Failed to send OTP code.');
     } finally {
       setLoading(false);
     }
@@ -136,84 +141,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    if (mode === 'register') {
-      // Check 10 digit phone number
-      const digitsOnly = phone.replace(/\D/g, '');
-      if (digitsOnly.length !== 10) {
-        setError('Contact phone number must be exactly 10 digits (e.g. 9876543210).');
-        return;
-      }
-
-      if (!tosAccepted) {
-        setError('You must accept the Terms of Service before creating an account.');
-        return;
-      }
-
-      // Check OTP verification
-      if (!otpVerified) {
-        if (!otpSent) {
-          // Trigger OTP send
-          await handleSendOtp();
-          return;
-        }
-
-        if (!otpInput || otpInput.trim().length !== 6) {
-          setError('Please enter the 6-digit OTP code sent to your email.');
-          return;
-        }
-
-        // Verify OTP
-        setLoading(true);
-        try {
-          const vRes = await fetch('/api/auth/verify-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim(), otp: otpInput.trim() }),
-          });
-
-          let vData: any = {};
-          try {
-            vData = await vRes.json();
-          } catch (e) {
-            throw new Error('Server returned invalid response during OTP verification.');
-          }
-
-          if (!vRes.ok) {
-            throw new Error(vData.error || 'OTP verification failed.');
-          }
-          setOtpVerified(true);
-        } catch (err: any) {
-          setError(err.message || 'OTP verification failed.');
-          setLoading(false);
-          return;
-        }
-      }
-    }
-
     setLoading(true);
 
     try {
-      if (mode === 'login') {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      if (mode === 'register') {
+        // Check 10 digit phone number
+        const digitsOnly = phone.replace(/\D/g, '');
+        if (digitsOnly.length !== 10) {
+          setError('Contact phone number must be exactly 10 digits (e.g. 9876543210).');
+          setLoading(false);
+          return;
+        }
+
+        if (!tosAccepted) {
+          setError('You must accept the Terms of Service before creating an account.');
+          setLoading(false);
+          return;
+        }
+
+        // Handle OTP verification if not verified yet
+        if (!otpVerified) {
+          if (!otpSent) {
+            setLoading(false);
+            await handleSendOtp();
+            return;
+          }
+
+          if (!otpInput || otpInput.trim().length !== 6) {
+            setError('Please enter the 6-digit OTP code sent to your email.');
+            setLoading(false);
+            return;
+          }
+
+          // Verify OTP
+          await requestApi('/api/auth/verify-otp', {
             email: email.trim(),
-            password,
-            expectedRole: role,
-          }),
+            otp: otpInput.trim(),
+          });
+          setOtpVerified(true);
+        }
+
+        // Register user
+        const data = await requestApi('/api/auth/register', {
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          role,
+          phone: digitsOnly,
+          businessName: role === 'owner' ? businessName : undefined,
+          tosAccepted,
         });
-
-        let data: any = {};
-        try {
-          data = await res.json();
-        } catch (e) {
-          throw new Error('Server returned invalid response during login.');
-        }
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Login failed.');
-        }
 
         if (rememberMe) {
           localStorage.setItem('turfbook_user', JSON.stringify(data.user));
@@ -224,31 +201,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onLoginSuccess(data.user);
         onClose();
       } else {
-        // Register
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name,
-            email: email.trim(),
-            password,
-            role,
-            phone: phone.replace(/\D/g, ''),
-            businessName: role === 'owner' ? businessName : undefined,
-            tosAccepted,
-          }),
+        // Login mode
+        const data = await requestApi('/api/auth/login', {
+          email: email.trim(),
+          password,
+          expectedRole: role,
         });
-
-        let data: any = {};
-        try {
-          data = await res.json();
-        } catch (e) {
-          throw new Error('Server returned invalid response during registration.');
-        }
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Registration failed.');
-        }
 
         if (rememberMe) {
           localStorage.setItem('turfbook_user', JSON.stringify(data.user));
@@ -260,12 +218,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      const msg = err?.message || '';
-      if (msg.toLowerCase().includes('pattern') || msg.toLowerCase().includes('match')) {
-        setError('Please check that your email address and 10-digit mobile number are entered correctly.');
-      } else {
-        setError(msg || 'An error occurred. Please try again.');
-      }
+      setError(err?.message || 'An error occurred during authentication. Please try again.');
     } finally {
       setLoading(false);
     }

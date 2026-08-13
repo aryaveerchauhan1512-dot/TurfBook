@@ -243,122 +243,154 @@ app.post('/api/auth/verify-otp', (req, res) => {
 
 // Authentication
 app.post('/api/auth/register', (req, res) => {
-  const { name, email, password, role, phone, businessName, tosAccepted } = req.body;
+  try {
+    const { name, email, password, role, phone, businessName, tosAccepted } = req.body || {};
 
-  if (!tosAccepted) {
-    return res.status(400).json({ error: 'You must accept the Terms of Service to create an account.' });
+    if (!tosAccepted) {
+      return res.status(400).json({ error: 'You must accept the Terms of Service to create an account.' });
+    }
+
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+    }
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Please enter your full name.' });
+    }
+
+    if (!role || (role !== 'user' && role !== 'owner')) {
+      return res.status(400).json({ error: 'Please select a valid account type (Player or Turf Owner).' });
+    }
+
+    // Enforce 10 digits phone number
+    const cleanPhone = (phone || '').toString().replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      return res.status(400).json({ error: 'Contact phone number must be exactly 10 digits (e.g. 9876543210).' });
+    }
+
+    const db = readDb();
+    if (!db || !Array.isArray(db.users)) {
+      db.users = [];
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existingUser = db.users.find((u: any) => u && u.email && u.email.toString().toLowerCase() === cleanEmail);
+    if (existingUser) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please log in instead.' });
+    }
+
+    const encryptedPhone = encryptText(cleanPhone);
+    const newUser: any = {
+      id: `${role === 'owner' ? 'owner' : 'usr'}-${Date.now()}`,
+      name: name.trim(),
+      email: cleanEmail,
+      passwordHash: hashPassword(password),
+      role: role === 'owner' ? 'owner' : 'user',
+      phone: encryptedPhone,
+      createdAt: new Date().toISOString()
+    };
+
+    if (role === 'owner') {
+      newUser.businessName = (businessName || name).trim();
+      newUser.paymentQrUrl = generateSampleQrCodeUrl(newUser.businessName);
+      newUser.isVerified = false;
+    }
+
+    db.users.push(newUser);
+    writeDb(db);
+
+    const safeUser = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      phone: decryptText(newUser.phone || ''),
+      businessName: newUser.businessName,
+      paymentQrUrl: newUser.paymentQrUrl,
+      isVerified: newUser.isVerified
+    };
+
+    return res.json({ success: true, user: safeUser });
+  } catch (err: any) {
+    console.error('Register endpoint error:', err);
+    return res.status(500).json({ error: err?.message || 'Registration failed due to a server error. Please try again.' });
   }
-
-  if (!email || !password || !name || !role) {
-    return res.status(400).json({ error: 'Name, email, password, and role are required.' });
-  }
-
-  // Enforce 10 digits phone number
-  const cleanPhone = (phone || '').replace(/\D/g, '');
-  if (cleanPhone.length !== 10) {
-    return res.status(400).json({ error: 'Contact phone number must be exactly 10 digits (e.g. 9876543210).' });
-  }
-
-  const db = readDb();
-  const existingUser = db.users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-  if (existingUser) {
-    return res.status(400).json({ error: 'An account with this email already exists.' });
-  }
-
-  const encryptedPhone = encryptText(phone || '');
-  const newUser: any = {
-    id: `${role === 'owner' ? 'owner' : 'usr'}-${Date.now()}`,
-    name,
-    email: email.trim(),
-    passwordHash: hashPassword(password),
-    role: role === 'owner' ? 'owner' : 'user',
-    phone: encryptedPhone,
-    createdAt: new Date().toISOString()
-  };
-
-  if (role === 'owner') {
-    newUser.businessName = businessName || name;
-    newUser.paymentQrUrl = generateSampleQrCodeUrl(businessName || name);
-    newUser.isVerified = false;
-  }
-
-  db.users.push(newUser);
-  writeDb(db);
-
-  const safeUser = {
-    id: newUser.id,
-    name: newUser.name,
-    email: newUser.email,
-    role: newUser.role,
-    phone: decryptText(newUser.phone),
-    businessName: newUser.businessName,
-    paymentQrUrl: newUser.paymentQrUrl,
-    isVerified: newUser.isVerified
-  };
-
-  res.json({ success: true, user: safeUser });
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { email, password, expectedRole } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
-  }
+  try {
+    const { email, password, expectedRole } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
 
-  const db = readDb();
-  const passwordHash = hashPassword(password);
+    const cleanEmail = email.toString().trim().toLowerCase();
+    const db = readDb();
+    if (!db || !Array.isArray(db.users)) {
+      db.users = [];
+    }
 
-  // Secret admin access check
-  if (email.trim().toLowerCase() === 'admin@1o1' && password === 'ilovepotato@123') {
-    const admin = db.users.find((u: any) => u.email === 'Admin@1o1') || {
-      id: 'usr-admin',
-      name: 'Super Admin',
-      email: 'Admin@1o1',
-      role: 'admin'
+    const passwordHash = hashPassword(password);
+
+    // Secret admin access check
+    if (cleanEmail === 'admin@1o1' && password === 'ilovepotato@123') {
+      const admin = db.users.find((u: any) => u && u.email && u.email.toString().toLowerCase() === 'admin@1o1') || {
+        id: 'usr-admin',
+        name: 'Super Admin',
+        email: 'Admin@1o1',
+        role: 'admin'
+      };
+      return res.json({
+        success: true,
+        user: {
+          id: admin.id,
+          name: admin.name,
+          email: admin.email,
+          role: 'admin',
+          phone: '+91 99999 88888'
+        }
+      });
+    }
+
+    const user = db.users.find(
+      (u: any) => u && u.email && u.email.toString().toLowerCase() === cleanEmail && u.passwordHash === passwordHash
+    );
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    if (user.isBanned) {
+      return res.status(403).json({ error: 'Your account has been suspended by Admin. Please contact support.' });
+    }
+
+    // Ensure role strictly matches expected flow
+    if (expectedRole && user.role !== expectedRole && user.role !== 'admin') {
+      return res.status(403).json({
+        error: `This account is registered as a ${user.role.toUpperCase()}. Please use the ${user.role.toUpperCase()} login screen.`
+      });
+    }
+
+    const safeUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: decryptText(user.phone || ''),
+      businessName: user.businessName,
+      paymentQrUrl: user.paymentQrUrl,
+      isVerified: user.isVerified
     };
-    return res.json({
-      success: true,
-      user: {
-        id: admin.id,
-        name: admin.name,
-        email: admin.email,
-        role: 'admin',
-        phone: '+91 99999 88888'
-      }
-    });
+
+    return res.json({ success: true, user: safeUser });
+  } catch (err: any) {
+    console.error('Login endpoint error:', err);
+    return res.status(500).json({ error: err?.message || 'Login failed due to a server error. Please try again.' });
   }
-
-  const user = db.users.find(
-    (u: any) => u.email.toLowerCase() === email.trim().toLowerCase() && u.passwordHash === passwordHash
-  );
-
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
-
-  if (user.isBanned) {
-    return res.status(403).json({ error: 'Your account has been suspended by Admin. Please contact support.' });
-  }
-
-  // Ensure role strictly matches expected flow
-  if (expectedRole && user.role !== expectedRole && user.role !== 'admin') {
-    return res.status(403).json({
-      error: `This account is registered as a ${user.role.toUpperCase()}. Please use the ${user.role.toUpperCase()} login screen.`
-    });
-  }
-
-  const safeUser = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    phone: decryptText(user.phone),
-    businessName: user.businessName,
-    paymentQrUrl: user.paymentQrUrl,
-    isVerified: user.isVerified
-  };
-
-  res.json({ success: true, user: safeUser });
 });
 
 // Update Owner QR and Phone Number
