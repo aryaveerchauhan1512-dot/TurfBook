@@ -709,7 +709,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
 
           {/* TAB 4: PAYMENT QR & PHONE SETTINGS */}
           {activeTab === 'qr' && (
-            <form onSubmit={handleSaveQrAndPhone} className="max-w-md mx-auto space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-200">
+            <form noValidate onSubmit={handleSaveQrAndPhone} className="max-w-md mx-auto space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-200">
               <h3 className="text-base font-black text-slate-800">Owner Contact & Payment QR Code</h3>
               <p className="text-xs text-slate-500">
                 This phone number and QR code will be revealed strictly to players when you approve their booking request.
@@ -718,7 +718,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Owner Contact Phone Number *</label>
                 <input
-                  type="tel"
+                  type="text"
+                  inputMode="numeric"
                   required
                   value={ownerPhone}
                   onChange={(e) => setOwnerPhone(e.target.value)}
@@ -775,7 +776,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
               </div>
             )}
 
-            <form onSubmit={handleSaveTurf} className="space-y-4">
+            <form noValidate onSubmit={handleSaveTurf} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Turf Name *</label>

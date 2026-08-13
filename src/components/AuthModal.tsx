@@ -107,7 +107,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       setInfoMessage(`Verification OTP code generated.`);
     } catch (err: any) {
-      setError(err.message || 'Failed to send OTP code.');
+      const msg = err?.message || '';
+      if (msg.toLowerCase().includes('pattern') || msg.toLowerCase().includes('match')) {
+        setError('Please enter a valid email address.');
+      } else {
+        setError(msg || 'Failed to send OTP code.');
+      }
     } finally {
       setLoading(false);
     }
@@ -255,7 +260,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+      const msg = err?.message || '';
+      if (msg.toLowerCase().includes('pattern') || msg.toLowerCase().includes('match')) {
+        setError('Please check that your email address and 10-digit mobile number are entered correctly.');
+      } else {
+        setError(msg || 'An error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -353,7 +363,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -400,6 +410,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
+                inputMode="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -417,7 +428,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
-                  type="tel"
+                  type="text"
+                  inputMode="numeric"
                   required
                   maxLength={10}
                   value={phone}

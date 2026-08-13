@@ -357,7 +357,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, onClose }) =
             <h3 className="text-lg font-black text-slate-800 mb-1">Leave a Review</h3>
             <p className="text-xs text-slate-500 mb-4">{reviewBooking.turfName}</p>
 
-            <form onSubmit={handleSubmitReview} className="space-y-4">
+            <form noValidate onSubmit={handleSubmitReview} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Rating</label>
                 <div className="flex items-center gap-2">
