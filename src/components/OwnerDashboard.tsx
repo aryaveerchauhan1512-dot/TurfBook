@@ -106,21 +106,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     try {
       const [turfsRes, bookingsRes] = await Promise.all([
         fetch('/api/turfs'),
-        fetch(`/api/bookings/owner/${user.id}`),
+        fetch(`/api/bookings/owner/${encodeURIComponent(user.id)}`),
       ]);
-      const turfsData = await turfsRes.json();
-      const bookingsData = await bookingsRes.json();
+      const turfsData = turfsRes.ok ? await turfsRes.json() : [];
+      const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
 
-      const myTurfs = turfsData.filter((t: Turf) => t.ownerId === user.id);
+      const myTurfs = Array.isArray(turfsData) ? turfsData.filter((t: Turf) => t.ownerId === user.id) : [];
       setTurfs(myTurfs);
-      setBookings(bookingsData);
+      setBookings(Array.isArray(bookingsData) ? bookingsData : []);
 
       if (myTurfs.length > 0 && !selectedTurfForSlots) {
         setSelectedTurfForSlots(myTurfs[0]);
       }
     } catch (err) {
       console.error('Error fetching owner data:', err);
-    } fontally: {
+    } finally {
       setLoading(false);
     }
   };

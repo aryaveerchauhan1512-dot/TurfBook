@@ -40,11 +40,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, onClose }) =
   const [cancelling, setCancelling] = useState(false);
 
   const fetchBookings = async () => {
+    if (!user || !user.id) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/bookings/user/${user.id}`);
-      const data = await res.json();
-      setBookings(data);
+      const res = await fetch(`/api/bookings/user/${encodeURIComponent(user.id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setBookings(data);
+        }
+      }
     } catch (err) {
       console.error('Error loading bookings:', err);
     } finally {

@@ -70,27 +70,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Robust API request helper
   const requestApi = async (url: string, body: any) => {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    const text = await res.text();
-    let data: any = {};
     try {
-      data = JSON.parse(text);
-    } catch (e) {
-      throw new Error(
-        res.ok ? 'Unexpected server response format.' : 'Server processing error. Please try again.'
-      );
-    }
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-    if (!res.ok) {
-      throw new Error(data.error || data.message || 'Request failed.');
-    }
+      const text = await res.text();
+      let data: any = {};
+      
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          console.error(`API response non-JSON from ${url}:`, text);
+          const cleanMsg = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+          throw new Error(cleanMsg || `Server returned response with status ${res.status}.`);
+        }
+      }
 
-    return data;
+      if (!res.ok) {
+        throw new Error(data.error || data.message || `Request failed with status ${res.status}.`);
+      }
+
+      return data;
+    } catch (err: any) {
+      if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
+        throw new Error('Connection error. Please check your network connection.');
+      }
+      throw err;
+    }
   };
 
   // Send OTP

@@ -129,12 +129,20 @@ export default function App() {
 
   // Fetch Notifications
   const fetchNotifications = async () => {
-    if (!user) return;
+    if (!user || !user.id) return;
     try {
-      const res = await fetch(`/api/notifications/${user.id}`);
-      const data = await res.json();
-      setNotifications(data);
-    } catch (err) {
+      const res = await fetch(`/api/notifications/${encodeURIComponent(user.id)}`);
+      if (!res.ok) return;
+      const text = await res.text();
+      if (!text) return;
+      const data = JSON.parse(text);
+      if (Array.isArray(data)) {
+        setNotifications(data);
+      }
+    } catch (err: any) {
+      if (err?.name === 'DOMException' || (err?.message && err.message.toLowerCase().includes('pattern'))) {
+        return;
+      }
       console.error('Error fetching notifications:', err);
     }
   };

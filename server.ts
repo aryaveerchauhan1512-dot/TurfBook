@@ -1094,6 +1094,22 @@ app.post('/api/admin/delete-listing', (req, res) => {
   res.json({ success: true });
 });
 
+// Fallback for unmatched /api/* routes
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: `API endpoint ${req.method} ${req.path} not found.` });
+});
+
+// Global JSON Error Handler for Express
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[API Error]', req.method, req.path, err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err.status || err.statusCode || 500).json({
+    error: err.message || 'An unexpected error occurred on the server.'
+  });
+});
+
 // Vite middleware or static serving
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
