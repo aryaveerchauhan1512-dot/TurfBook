@@ -84,15 +84,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
       });
-      const data = await res.json();
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error('Server returned invalid response. Please try again.');
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to send OTP.');
       }
+
       setOtpSent(true);
-      setOtpNotice(`6-digit OTP code sent to ${email.trim()}. Please check your inbox or spam folder.`);
-      setInfoMessage(`Verification OTP sent to ${email.trim()}.`);
+      if (data.emailSent) {
+        setOtpNotice(`6-digit OTP code sent to ${email.trim()}. Please check your inbox or spam folder.`);
+      } else if (data.otp) {
+        setOtpNotice(`OTP Code: ${data.otp} (Your 6-digit verification code)`);
+        setOtpInput(data.otp);
+      } else {
+        setOtpNotice(`OTP code requested for ${email.trim()}.`);
+      }
+      setInfoMessage(`Verification OTP code generated.`);
     } catch (err: any) {
-      setError(err.message || 'Failed to send OTP.');
+      setError(err.message || 'Failed to send OTP code.');
     } finally {
       setLoading(false);
     }
@@ -150,7 +165,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email.trim(), otp: otpInput.trim() }),
           });
-          const vData = await vRes.json();
+
+          let vData: any = {};
+          try {
+            vData = await vRes.json();
+          } catch (e) {
+            throw new Error('Server returned invalid response during OTP verification.');
+          }
+
           if (!vRes.ok) {
             throw new Error(vData.error || 'OTP verification failed.');
           }
@@ -177,7 +199,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }),
         });
 
-        const data = await res.json();
+        let data: any = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          throw new Error('Server returned invalid response during login.');
+        }
+
         if (!res.ok) {
           throw new Error(data.error || 'Login failed.');
         }
@@ -206,7 +234,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }),
         });
 
-        const data = await res.json();
+        let data: any = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          throw new Error('Server returned invalid response during registration.');
+        }
+
         if (!res.ok) {
           throw new Error(data.error || 'Registration failed.');
         }

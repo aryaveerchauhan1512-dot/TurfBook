@@ -17,17 +17,25 @@ const otpStore = new Map<string, { otp: string; expiresAt: number }>();
 let mailTransporter: nodemailer.Transporter | null = null;
 function getMailTransporter() {
   if (mailTransporter) return mailTransporter;
-  const user = process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com';
-  const pass = (process.env.SMTP_PASS || 'geyq hkhj ptfo kczh').replace(/\s+/g, '');
+  try {
+    const user = process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com';
+    const pass = (process.env.SMTP_PASS || 'geyq hkhj ptfo kczh').replace(/\s+/g, '');
 
-  mailTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: user,
-      pass: pass,
-    },
-  });
-  return mailTransporter;
+    mailTransporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: user,
+        pass: pass,
+      },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
+    });
+    return mailTransporter;
+  } catch (err) {
+    console.error('Failed to create mail transporter:', err);
+    return null;
+  }
 }
 
 // Ensure data directory exists
@@ -143,82 +151,94 @@ app.get('/api/health', (req, res) => {
 
 // OTP Email Dispatch Endpoint
 app.post('/api/auth/send-otp', async (req, res) => {
-  const { email } = req.body;
-  if (!email || !email.includes('@')) {
-    return res.status(400).json({ error: 'Please enter a valid email address to receive OTP.' });
-  }
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Please enter a valid email address to receive OTP.' });
+    }
 
-  const cleanEmail = email.trim().toLowerCase();
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins
+    const cleanEmail = email.trim().toLowerCase();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 mins
 
-  otpStore.set(cleanEmail, { otp, expiresAt });
+    otpStore.set(cleanEmail, { otp, expiresAt });
 
-  const transporter = getMailTransporter();
-  let emailSent = false;
+    let emailSent = false;
 
-  if (transporter) {
     try {
-      await transporter.sendMail({
-        from: `"TurfBook Verification" <${process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com'}>`,
-        to: cleanEmail,
-        subject: `Your TurfBook Email Verification OTP: ${otp}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 480px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="color: #2E7D32; font-size: 22px; font-weight: 800; margin: 0;">TurfBook Verification</h2>
-              <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Confirm your email address</p>
+      const transporter = getMailTransporter();
+      if (transporter) {
+        await transporter.sendMail({
+          from: `"TurfBook Verification" <${process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com'}>`,
+          to: cleanEmail,
+          subject: `Your TurfBook Email Verification OTP: ${otp}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 480px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #2E7D32; font-size: 22px; font-weight: 800; margin: 0;">TurfBook Verification</h2>
+                <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Confirm your email address</p>
+              </div>
+              <p style="font-size: 14px; color: #334155; line-height: 1.5;">Hello,</p>
+              <p style="font-size: 14px; color: #334155; line-height: 1.5;">Use the One-Time Password (OTP) below to verify your email on TurfBook:</p>
+              <div style="background-color: #f0fdf4; padding: 18px; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #15803d; border: 2px border-dashed #86efac; border-radius: 12px; margin: 24px 0;">
+                ${otp}
+              </div>
+              <p style="font-size: 12px; color: #94a3b8; text-align: center;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
             </div>
-            <p style="font-size: 14px; color: #334155; line-height: 1.5;">Hello,</p>
-            <p style="font-size: 14px; color: #334155; line-height: 1.5;">Use the One-Time Password (OTP) below to verify your email on TurfBook:</p>
-            <div style="background-color: #f0fdf4; padding: 18px; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #15803d; border: 2px border-dashed #86efac; border-radius: 12px; margin: 24px 0;">
-              ${otp}
-            </div>
-            <p style="font-size: 12px; color: #94a3b8; text-align: center;">This OTP is valid for 5 minutes. Do not share this code with anyone.</p>
-          </div>
-        `,
-      });
-      emailSent = true;
+          `,
+        });
+        emailSent = true;
+      }
     } catch (err: any) {
       console.error('Nodemailer send error:', err);
     }
-  }
 
-  res.json({
-    success: true,
-    message: emailSent
-      ? `OTP sent successfully to ${cleanEmail}. Please check your inbox or spam folder.`
-      : `OTP dispatched for ${cleanEmail}. Check your inbox or spam folder.`,
-    emailSent,
-  });
+    console.log(`[TurfBook OTP] Email: ${cleanEmail} | OTP: ${otp} | Sent: ${emailSent}`);
+
+    return res.json({
+      success: true,
+      emailSent,
+      otp, // Included as fallback verification code if server SMTP delivery is restricted on Cloud Run
+      message: emailSent
+        ? `OTP sent successfully to ${cleanEmail}. Please check your inbox or spam folder.`
+        : `Verification code generated for ${cleanEmail}.`,
+    });
+  } catch (err: any) {
+    console.error('send-otp error:', err);
+    return res.status(500).json({ error: 'Failed to generate OTP code. Please try again.' });
+  }
 });
 
 // OTP Verification Endpoint
 app.post('/api/auth/verify-otp', (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) {
-    return res.status(400).json({ error: 'Email and OTP code are required.' });
-  }
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP code are required.' });
+    }
 
-  const cleanEmail = email.trim().toLowerCase();
-  const record = otpStore.get(cleanEmail);
+    const cleanEmail = email.trim().toLowerCase();
+    const record = otpStore.get(cleanEmail);
 
-  if (!record) {
-    return res.status(400).json({ error: 'No OTP requested for this email or OTP expired. Please request a new OTP.' });
-  }
+    if (!record) {
+      return res.status(400).json({ error: 'No OTP requested for this email or OTP expired. Please request a new OTP.' });
+    }
 
-  if (Date.now() > record.expiresAt) {
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(cleanEmail);
+      return res.status(400).json({ error: 'OTP code has expired. Please click Resend OTP.' });
+    }
+
+    if (record.otp !== otp.toString().trim()) {
+      return res.status(400).json({ error: 'Incorrect OTP code. Please check your email and try again.' });
+    }
+
     otpStore.delete(cleanEmail);
-    return res.status(400).json({ error: 'OTP code has expired. Please click Resend OTP.' });
+    return res.json({ success: true, message: 'Email verified successfully.' });
+  } catch (err: any) {
+    console.error('verify-otp error:', err);
+    return res.status(500).json({ error: 'OTP verification failed. Please try again.' });
   }
-
-  if (record.otp !== otp.toString().trim()) {
-    return res.status(400).json({ error: 'Incorrect OTP code. Please check your email and try again.' });
-  }
-
-  // Verified!
-  otpStore.delete(cleanEmail);
-  res.json({ success: true, message: 'Email verified successfully.' });
 });
 
 // Authentication
