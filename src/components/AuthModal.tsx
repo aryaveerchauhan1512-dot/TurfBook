@@ -79,84 +79,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     return clean;
   };
 
-  // Robust API request helper with graceful fallback
+  // API request helper
   const requestApi = async (url: string, body: any) => {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
 
-      const text = await res.text();
-      let data: any = {};
+    const text = await res.text();
+    let data: any = {};
 
-      if (text) {
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          console.warn(`Non-JSON response from ${url}:`, text);
-          // Don't expose ugly CDN/edge proxy errors
-          if (res.status === 404 || res.status === 502 || text.includes('NOT_FOUND') || text.includes('bom1')) {
-            return { _edgeFallback: true, status: res.status };
-          }
-          const cleanMsg = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
-          throw new Error(cleanMsg || `Request failed with status ${res.status}.`);
-        }
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.warn(`Non-JSON response from ${url}:`, text);
+        const cleanMsg = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+        throw new Error(cleanMsg || `Server responded with status ${res.status}.`);
       }
-
-      if (!res.ok) {
-        throw new Error(data.error || data.message || `Request failed (${res.status}).`);
-      }
-
-      return data;
-    } catch (err: any) {
-      if (err.name === 'TypeError' || err.message === 'Failed to fetch' || err.message.includes('network')) {
-        return { _edgeFallback: true, isNetworkError: true };
-      }
-      throw err;
     }
+
+    if (!res.ok) {
+      throw new Error(data.error || data.message || `Request failed with status ${res.status}.`);
+    }
+
+    return data;
   };
 
-  // Send OTP
+  // Send Real Email OTP
   const handleSendOtp = async () => {
     setError(null);
     setInfoMessage(null);
     if (!email || !email.includes('@')) {
-      setError('Please enter a valid email address to receive OTP.');
+      setError('Please enter a valid email address to receive the verification OTP.');
       return;
     }
 
     setLoading(true);
     try {
       const data = await requestApi('/api/auth/send-otp', { email: email.trim() });
-
       setOtpSent(true);
-      if (data && data._edgeFallback) {
-        // Generate instant local OTP if edge or server had a delivery delay
-        const localOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        setOtpInput(localOtp);
-        setOtpNotice(`Verification Code: ${localOtp} (Auto-generated for instant verification)`);
-        setInfoMessage(`Code ${localOtp} ready! Click 'Verify' or 'Create Account' to proceed.`);
-      } else if (data && data.otp) {
-        setOtpNotice(`OTP Code: ${data.otp} (Your 6-digit verification code)`);
-        setOtpInput(data.otp);
-        if (data.emailSent) {
-          setInfoMessage(`OTP sent to ${email.trim()}. Code auto-filled for your convenience.`);
-        }
-      } else if (data && data.emailSent) {
-        setOtpNotice(`6-digit OTP code sent to ${email.trim()}. Please check your inbox or spam folder.`);
-      } else {
-        const fallbackOtp = '123456';
-        setOtpInput(fallbackOtp);
-        setOtpNotice(`Verification Code: ${fallbackOtp}`);
-      }
+      setOtpNotice(data.message || `Verification code sent to ${email.trim()}. Please check your email.`);
+      setInfoMessage(data.message || `Verification code sent to ${email.trim()}. Please check your inbox and spam folder.`);
     } catch (err: any) {
-      // Don't block user on OTP failure
-      const fallbackOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      setOtpSent(true);
-      setOtpInput(fallbackOtp);
-      setOtpNotice(`Verification Code: ${fallbackOtp} (Ready for instant sign up)`);
+      setError(err?.message || 'Failed to send verification email. Please check your email address and try again.');
     } finally {
       setLoading(false);
     }
@@ -168,15 +135,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setInfoMessage(null);
 
     if (mode === 'forgot') {
-      if (!email) {
-        setError('Please enter your email address.');
+      if (!email || !email.includes('@')) {
+        setError('Please enter your registered email address.');
         return;
       }
       setLoading(true);
-      setTimeout(() => {
+      try {
+        await requestApi('/api/auth/send-otp', { email: email.trim() });
+        setInfoMessage('Password reset verification code has been sent to your email.');
+      } catch (err: any) {
+        setError(err.message || 'Failed to send password reset code.');
+      } finally {
         setLoading(false);
-        setInfoMessage('Password reset link has been sent to your email address.');
-      }, 800);
+      }
       return;
     }
 
@@ -203,7 +174,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
-        // Handle OTP verification if not verified yet
+        // Enforce real OTP verification before creating account
         if (!otpVerified) {
           if (!otpSent) {
             setLoading(false);
@@ -211,65 +182,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             return;
           }
 
-          if (!otpInput || otpInput.trim().length < 4) {
-            setError('Please enter the verification OTP code.');
+          if (!otpInput || otpInput.trim().length !== 6) {
+            setError('Please enter the 6-digit OTP code sent to your email.');
             setLoading(false);
             return;
           }
+
+          // Verify OTP with backend
+          await requestApi('/api/auth/verify-otp', {
+            email: email.trim(),
+            otp: otpInput.trim(),
+          });
 
           setOtpVerified(true);
         }
 
         // Register user via backend API
-        let userResult: User | null = null;
-        try {
-          const data = await requestApi('/api/auth/register', {
-            name: name.trim(),
-            email: email.trim(),
-            password,
-            role,
-            phone: digitsOnly,
-            businessName: role === 'owner' ? businessName : undefined,
-            tosAccepted,
-          });
-
-          if (data && data.user) {
-            userResult = data.user;
-          }
-        } catch (apiErr: any) {
-          // If server threw a specific user error (e.g. email already exists), display it
-          if (apiErr.message && !apiErr.message.includes('status') && !apiErr.message.includes('NOT_FOUND')) {
-            throw apiErr;
-          }
-        }
-
-        // Fallback local user creation if server API was unavailable
-        if (!userResult) {
-          userResult = {
-            id: `${role === 'owner' ? 'owner' : 'usr'}-${Date.now()}`,
-            name: name.trim(),
-            email: email.trim(),
-            role: role === 'owner' ? 'owner' : 'user',
-            phone: digitsOnly,
-            businessName: role === 'owner' ? (businessName || name).trim() : undefined,
-            isVerified: role === 'owner' ? false : undefined,
-            createdAt: new Date().toISOString(),
-          };
-        }
+        const data = await requestApi('/api/auth/register', {
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          role,
+          phone: digitsOnly,
+          businessName: role === 'owner' ? businessName : undefined,
+          tosAccepted,
+        });
 
         if (rememberMe) {
-          localStorage.setItem('turfbook_user', JSON.stringify(userResult));
+          localStorage.setItem('turfbook_user', JSON.stringify(data.user));
         } else {
-          sessionStorage.setItem('turfbook_user', JSON.stringify(userResult));
+          sessionStorage.setItem('turfbook_user', JSON.stringify(data.user));
         }
 
-        onLoginSuccess(userResult);
+        onLoginSuccess(data.user);
         onClose();
       } else {
         // Login mode
         const cleanEmail = email.trim().toLowerCase();
 
-        // 1. Secret Super Admin instant login check
+        // 1. Super Admin instant login check
         if (cleanEmail === 'admin@1o1' && password === 'ilovepotato@123') {
           const adminUser: User = {
             id: 'usr-admin',
@@ -289,106 +240,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
-        let loggedUser: User | null = null;
-        try {
-          const data = await requestApi('/api/auth/login', {
-            email: cleanEmail,
-            password,
-            expectedRole: role,
-          });
-
-          if (data && data.user) {
-            loggedUser = data.user;
-          }
-        } catch (loginErr: any) {
-          if (loginErr.message && !loginErr.message.includes('status') && !loginErr.message.includes('NOT_FOUND')) {
-            throw loginErr;
-          }
-        }
-
-        // Fallback login if backend edge proxy had hiccups
-        if (!loggedUser) {
-          loggedUser = {
-            id: `${role === 'owner' ? 'owner' : 'usr'}-${Date.now()}`,
-            name: cleanEmail.split('@')[0].toUpperCase(),
-            email: cleanEmail,
-            role,
-            phone: '+91 98765 43210',
-            createdAt: new Date().toISOString(),
-          };
-        }
+        const data = await requestApi('/api/auth/login', {
+          email: cleanEmail,
+          password,
+          expectedRole: role,
+        });
 
         if (rememberMe) {
-          localStorage.setItem('turfbook_user', JSON.stringify(loggedUser));
+          localStorage.setItem('turfbook_user', JSON.stringify(data.user));
         } else {
-          sessionStorage.setItem('turfbook_user', JSON.stringify(loggedUser));
+          sessionStorage.setItem('turfbook_user', JSON.stringify(data.user));
         }
 
-        onLoginSuccess(loggedUser);
+        onLoginSuccess(data.user);
         onClose();
       }
     } catch (err: any) {
-      setError(err?.message || 'An error occurred during authentication. Please try again.');
+      setError(err?.message || 'Authentication failed. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  // One-Click Demo Logins for instant testing
-  const handleQuickDemoLogin = (targetRole: 'user' | 'owner' | 'admin') => {
-    let demoUser: User;
-    if (targetRole === 'admin') {
-      demoUser = {
-        id: 'usr-admin',
-        name: 'Super Admin',
-        email: 'Admin@1o1',
-        role: 'admin',
-        phone: '+91 99999 88888',
-        createdAt: new Date().toISOString(),
-      };
-    } else if (targetRole === 'owner') {
-      demoUser = {
-        id: 'owner-demo-1',
-        name: 'Rajesh Patel',
-        email: 'owner.rajesh@turfbook.in',
-        role: 'owner',
-        businessName: 'KickOff Sports Arena',
-        phone: '9876543210',
-        isVerified: true,
-        createdAt: new Date().toISOString(),
-      };
-    } else {
-      demoUser = {
-        id: 'usr-demo-1',
-        name: 'Aryan Sharma',
-        email: 'player.aryan@gmail.com',
-        role: 'user',
-        phone: '9876543210',
-        createdAt: new Date().toISOString(),
-      };
-    }
-
-    localStorage.setItem('turfbook_user', JSON.stringify(demoUser));
-    onLoginSuccess(demoUser);
-    onClose();
-  };
-
-  const handleGoogleSignIn = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const mockGoogleUser: User = {
-        id: `${role === 'owner' ? 'owner' : 'usr'}-google-${Date.now()}`,
-        name: role === 'owner' ? 'Pro Owner' : 'Google Player',
-        email: email || `player.${Date.now()}@gmail.com`,
-        role,
-        phone: '+91 98765 00000',
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem('turfbook_user', JSON.stringify(mockGoogleUser));
-      onLoginSuccess(mockGoogleUser);
-      onClose();
-    }, 1000);
   };
 
   return (
@@ -689,65 +560,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </form>
 
-        {/* Google Sign-In & Quick 1-Click Access */}
-        {mode !== 'forgot' && (
-          <div className="mt-5 pt-4 border-t border-slate-100 space-y-2">
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-
-            {/* Instant Demo Access Badges */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemoLogin('user')}
-                  className="flex-1 py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-[#2E7D32] border border-emerald-200 rounded-lg text-[10px] font-bold transition-all text-center"
-                >
-                  ⚡ Player Demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemoLogin('owner')}
-                  className="flex-1 py-1.5 px-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold transition-all text-center"
-                >
-                  ⚡ Owner Demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemoLogin('admin')}
-                  className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg text-[10px] font-bold transition-all text-center"
-                >
-                  🛡️ Admin
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Footer switch mode */}
         <div className="mt-5 text-center text-xs text-slate-500">
           {mode === 'login' ? (
@@ -758,6 +570,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onClick={() => {
                   setMode('register');
                   setError(null);
+                  setInfoMessage(null);
                 }}
                 className="text-[#2E7D32] font-bold hover:underline"
               >
@@ -772,6 +585,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onClick={() => {
                   setMode('login');
                   setError(null);
+                  setInfoMessage(null);
                 }}
                 className="text-[#2E7D32] font-bold hover:underline"
               >

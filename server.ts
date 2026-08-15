@@ -9,6 +9,17 @@ import { smartMatchDistrict, smartMatchTurf } from './src/data/indianDistricts';
 const app = express();
 const PORT = 3000;
 
+// Permissive CORS and preflight handling
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
 app.use(express.json({ limit: '25mb' }));
 
 // OTP In-Memory Store
@@ -18,19 +29,37 @@ let mailTransporter: nodemailer.Transporter | null = null;
 function getMailTransporter() {
   if (mailTransporter) return mailTransporter;
   try {
-    const user = process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com';
-    const pass = (process.env.SMTP_PASS || 'geyq hkhj ptfo kczh').replace(/\s+/g, '');
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+    const user = (process.env.SMTP_USER || process.env.GMAIL_USER || 'aryaveerchauhan1512@gmail.com').trim();
+    const pass = (process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASSWORD || 'geyq hkhj ptfo kczh').replace(/\s+/g, '');
 
-    mailTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: user,
-        pass: pass,
-      },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 5000,
-    });
+    if (!user || !pass) {
+      console.warn('SMTP credentials not configured. Please set SMTP_USER and SMTP_PASS environment variables.');
+      return null;
+    }
+
+    if (host && host !== 'smtp.gmail.com') {
+      mailTransporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: { user, pass },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+      });
+    } else {
+      mailTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user, pass },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+      });
+    }
+
     return mailTransporter;
   } catch (err) {
     console.error('Failed to create mail transporter:', err);
@@ -38,12 +67,28 @@ function getMailTransporter() {
   }
 }
 
-// Ensure data directory exists
-const DATA_DIR = path.join(process.cwd(), 'data');
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+// Support ephemeral writable directory in Vercel serverless environment
+const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL_ENV;
+const DATA_DIR = isVercel ? path.join('/tmp', 'turfbook-data') : path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+
+function ensureDataFile() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(DB_FILE)) {
+    const seedFile = path.join(process.cwd(), 'data', 'db.json');
+    if (fs.existsSync(seedFile)) {
+      try {
+        fs.copyFileSync(seedFile, DB_FILE);
+      } catch (e) {
+        fs.writeFileSync(DB_FILE, JSON.stringify(getInitialDb(), null, 2), 'utf8');
+      }
+    } else {
+      fs.writeFileSync(DB_FILE, JSON.stringify(getInitialDb(), null, 2), 'utf8');
+    }
+  }
+}
 
 // Helper for encryption of personal data (phone numbers, etc)
 const ENCRYPTION_KEY = crypto.createHash('sha256').update('turfbook-secret-key-2026').digest();
@@ -123,9 +168,10 @@ function getInitialDb() {
 
 // Load or initialize DB
 function readDb() {
+  ensureDataFile();
   if (!fs.existsSync(DB_FILE)) {
     const initial = getInitialDb();
-    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
+    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), 'utf8');
     return initial;
   }
   try {
@@ -133,13 +179,16 @@ function readDb() {
     return JSON.parse(raw);
   } catch (err) {
     const initial = getInitialDb();
-    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), 'utf8');
+    } catch (e) {}
     return initial;
   }
 }
 
 function writeDb(db: any) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  ensureDataFile();
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
 }
 
 // --- API ROUTES ---
@@ -163,46 +212,49 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     otpStore.set(cleanEmail, { otp, expiresAt });
 
-    let emailSent = false;
-
-    try {
-      const transporter = getMailTransporter();
-      if (transporter) {
-        await transporter.sendMail({
-          from: `"TurfBook Verification" <${process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com'}>`,
-          to: cleanEmail,
-          subject: `Your TurfBook Email Verification OTP: ${otp}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 480px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #2E7D32; font-size: 22px; font-weight: 800; margin: 0;">TurfBook Verification</h2>
-                <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Confirm your email address</p>
-              </div>
-              <p style="font-size: 14px; color: #334155; line-height: 1.5;">Hello,</p>
-              <p style="font-size: 14px; color: #334155; line-height: 1.5;">Use the One-Time Password (OTP) below to verify your email on TurfBook:</p>
-              <div style="background-color: #f0fdf4; padding: 18px; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #15803d; border: 2px border-dashed #86efac; border-radius: 12px; margin: 24px 0;">
-                ${otp}
-              </div>
-              <p style="font-size: 12px; color: #94a3b8; text-align: center;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
-            </div>
-          `,
-        });
-        emailSent = true;
-      }
-    } catch (err: any) {
-      console.error('Nodemailer send error:', err);
+    const transporter = getMailTransporter();
+    if (!transporter) {
+      return res.status(500).json({
+        error: 'Email delivery service is not configured. Please set SMTP_USER and SMTP_PASS environment variables.'
+      });
     }
 
-    console.log(`[TurfBook OTP] Email: ${cleanEmail} | OTP: ${otp} | Sent: ${emailSent}`);
+    const sender = process.env.SMTP_FROM || process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com';
 
-    return res.json({
-      success: true,
-      emailSent,
-      otp, // Included as fallback verification code if server SMTP delivery is restricted on Cloud Run
-      message: emailSent
-        ? `OTP sent successfully to ${cleanEmail}. Please check your inbox or spam folder.`
-        : `Verification code generated for ${cleanEmail}.`,
-    });
+    try {
+      await transporter.sendMail({
+        from: `"TurfBook Verification" <${sender}>`,
+        to: cleanEmail,
+        subject: `Your TurfBook Email Verification OTP: ${otp}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 480px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h2 style="color: #2E7D32; font-size: 22px; font-weight: 800; margin: 0;">TurfBook Verification</h2>
+              <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Confirm your email address</p>
+            </div>
+            <p style="font-size: 14px; color: #334155; line-height: 1.5;">Hello,</p>
+            <p style="font-size: 14px; color: #334155; line-height: 1.5;">Use the One-Time Password (OTP) below to verify your email on TurfBook:</p>
+            <div style="background-color: #f0fdf4; padding: 18px; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #15803d; border: 2px border-dashed #86efac; border-radius: 12px; margin: 24px 0;">
+              ${otp}
+            </div>
+            <p style="font-size: 12px; color: #94a3b8; text-align: center;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
+          </div>
+        `,
+      });
+
+      console.log(`[TurfBook OTP] Email delivered to: ${cleanEmail}`);
+
+      return res.json({
+        success: true,
+        emailSent: true,
+        message: `OTP sent successfully to ${cleanEmail}. Please check your inbox or spam folder.`,
+      });
+    } catch (mailErr: any) {
+      console.error('Nodemailer send error:', mailErr);
+      return res.status(500).json({
+        error: `Could not send verification email to ${cleanEmail}. Please ensure SMTP_USER and SMTP_PASS are set in environment variables.`
+      });
+    }
   } catch (err: any) {
     console.error('send-otp error:', err);
     return res.status(500).json({ error: 'Failed to generate OTP code. Please try again.' });
@@ -1137,4 +1189,9 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
+
