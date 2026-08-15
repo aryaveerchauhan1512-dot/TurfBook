@@ -266,10 +266,16 @@ app.post('/api/auth/register', (req, res) => {
       return res.status(400).json({ error: 'Please select a valid account type (Player or Turf Owner).' });
     }
 
-    // Enforce 10 digits phone number
-    const cleanPhone = (phone || '').toString().replace(/\D/g, '');
+    // Normalize and enforce 10 digits phone number
+    let cleanPhone = (phone || '').toString().replace(/\D/g, '');
+    if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+      cleanPhone = cleanPhone.slice(2);
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+      cleanPhone = cleanPhone.slice(1);
+    }
+
     if (cleanPhone.length !== 10) {
-      return res.status(400).json({ error: 'Contact phone number must be exactly 10 digits (e.g. 9876543210).' });
+      return res.status(400).json({ error: 'Contact phone number must be a valid 10-digit mobile number (e.g. 9876543210).' });
     }
 
     const db = readDb();

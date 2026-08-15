@@ -1,0 +1,27 @@
+{
+  "users": [
+    {
+      "id": "usr-admin",
+      "name": "Super Admin",
+      "email": "Admin@1o1",
+      "passwordHash": "1e5382fc5c7de165c89a3d8f91a24132f68bb028b272c67f9c63ec9feb8a5f8019b223d5c3b0c0e2ee16283367d05586bab868e08a8fbba358f5859b773b4998",
+      "role": "admin",
+      "phone": "07e826610e7d0bf7510bde1c68ed7490:0a0d8573bded27e49cbe2fc14c4c9557",
+      "createdAt": "2026-08-15T15:53:19.338Z"
+    },
+    {
+      "id": "usr-1786809352844",
+      "name": "Test User",
+      "email": "test@example.com",
+      "passwordHash": "801ec43179869dda2e7110a144db41df1b50329c4fa0458bbba4868240c412b183e74735e5f8439b39356ed19a96b2f8ca6d953bce845f2184d18962bf1a6a93",
+      "role": "user",
+      "phone": "22787c4fd2086172b8d786072c3aca2a:9e591beae098ff9ff55dc0e7ca607778",
+      "createdAt": "2026-08-15T15:55:52.845Z"
+    }
+  ],
+  "turfs": [],
+  "slots": [],
+  "bookings": [],
+  "reviews": [],
+  "notifications": []
+}

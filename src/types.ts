@@ -7,7 +7,11 @@ export interface User {
   role: UserRole;
   phone?: string;
   isBanned?: boolean;
-  createdAt: string;
+  businessName?: string;
+  paymentQrUrl?: string;
+  isSuspended?: boolean;
+  isVerified?: boolean;
+  createdAt?: string;
 }
 
 export interface TurfOwner extends User {
