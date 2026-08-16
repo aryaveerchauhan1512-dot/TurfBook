@@ -13,7 +13,9 @@ import {
   EyeOff,
   Sparkles,
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  Shield,
+  CheckCircle2
 } from 'lucide-react';
 import { User } from '../types';
 import { TurfBookLogo } from './TurfBookLogo';
@@ -112,7 +114,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setInfoMessage(null);
     if (!email || !email.includes('@')) {
-      setError('Please enter a valid email address to receive the verification OTP.');
+      setError('Please enter a valid email address first to receive the verification OTP.');
       return;
     }
 
@@ -121,9 +123,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const data = await requestApi('/api/auth/send-otp', { email: email.trim() });
       setOtpSent(true);
       setOtpNotice(data.message || `Verification code sent to ${email.trim()}. Please check your email.`);
-      setInfoMessage(data.message || `Verification code sent to ${email.trim()}. Please check your inbox and spam folder.`);
+      setInfoMessage(`Verification code sent to ${email.trim()}. Please check your inbox and spam folder.`);
     } catch (err: any) {
       setError(err?.message || 'Failed to send verification email. Please check your email address and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Explicit Verify OTP handler
+  const handleVerifyOtp = async () => {
+    if (!email || !email.includes('@')) {
+      setError('Please enter your email address.');
+      return;
+    }
+    const cleanOtp = (otpInput || '').trim();
+    if (cleanOtp.length !== 6) {
+      setError('Please enter the full 6-digit verification code sent to your email.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      await requestApi('/api/auth/verify-otp', {
+        email: email.trim(),
+        otp: cleanOtp,
+      });
+      setOtpVerified(true);
+      setInfoMessage('✅ Email verified successfully! You can now complete your registration.');
+    } catch (err: any) {
+      setError(err?.message || 'Incorrect or expired OTP code. Please check your email or click Resend.');
     } finally {
       setLoading(false);
     }
@@ -174,15 +204,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
+        // If OTP has not been sent yet, trigger it automatically
+        if (!otpSent && !otpVerified) {
+          await handleSendOtp();
+          setLoading(false);
+          return;
+        }
+
         // Enforce real OTP verification before creating account
         if (!otpVerified) {
-          if (!otpSent) {
-            setLoading(false);
-            await handleSendOtp();
-            return;
-          }
-
-          if (!otpInput || otpInput.trim().length !== 6) {
+          const cleanOtp = (otpInput || '').trim();
+          if (!cleanOtp || cleanOtp.length !== 6) {
             setError('Please enter the 6-digit OTP code sent to your email.');
             setLoading(false);
             return;
@@ -191,7 +223,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           // Verify OTP with backend
           await requestApi('/api/auth/verify-otp', {
             email: email.trim(),
-            otp: otpInput.trim(),
+            otp: cleanOtp,
           });
 
           setOtpVerified(true);
@@ -220,7 +252,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         // Login mode
         const cleanEmail = email.trim().toLowerCase();
 
-        // 1. Super Admin instant login check
+        // Super Admin instant login check
         if (cleanEmail === 'admin@1o1' && password === 'ilovepotato@123') {
           const adminUser: User = {
             id: 'usr-admin',
@@ -415,47 +447,94 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {/* OTP Verification Box for Signup */}
+          {/* OTP Verification Box for Signup - Always visible & prominent */}
           {mode === 'register' && (
-            <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200/80 space-y-2.5">
+            <div className="p-3.5 bg-gradient-to-b from-emerald-50/90 to-emerald-100/50 rounded-2xl border border-emerald-300/80 space-y-2.5 shadow-sm">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-emerald-900">
-                  Email OTP Verification *
+                <label className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-[#2E7D32]" />
+                  <span>Email Verification OTP *</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={loading}
-                  className="text-[11px] text-[#2E7D32] font-bold hover:underline"
-                >
-                  {otpSent ? 'Resend OTP' : 'Get OTP Code'}
-                </button>
+                {otpVerified ? (
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={loading}
+                    className="text-[11px] text-[#2E7D32] hover:text-[#1b4d1f] font-bold underline transition-colors"
+                  >
+                    {otpSent ? 'Resend Code' : 'Send Code to Email'}
+                  </button>
+                )}
               </div>
 
-              {otpNotice && (
-                <p className="text-[11px] text-emerald-800 bg-white/80 p-2 rounded-xl border border-emerald-300 font-semibold">
-                  {otpNotice}
-                </p>
+              {otpNotice && !otpVerified && (
+                <div className="text-[11px] text-emerald-900 bg-white p-2.5 rounded-xl border border-emerald-200 font-medium flex items-start gap-2 shadow-xs">
+                  <Mail className="w-4 h-4 text-[#2E7D32] shrink-0 mt-0.5" />
+                  <span className="leading-snug">{otpNotice}</span>
+                </div>
               )}
 
-              {otpSent && (
-                <div>
-                  <div className="relative">
+              {/* 6-Digit OTP Entry Field - Permanently Visible */}
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
                     <Mail className="w-4 h-4 text-emerald-600 absolute left-3.5 top-3" />
                     <input
                       type="text"
+                      inputMode="numeric"
                       maxLength={6}
+                      disabled={otpVerified}
                       value={otpInput}
-                      onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setOtpInput(val);
+                        if (val.length === 6 && !otpVerified) {
+                          setError(null);
+                        }
+                      }}
                       placeholder="Enter 6-digit OTP code"
-                      className="w-full pl-10 pr-4 py-2 bg-white border border-emerald-300 rounded-xl text-xs text-emerald-950 font-mono tracking-widest font-bold focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+                      className="w-full pl-10 pr-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs sm:text-sm text-emerald-950 font-mono tracking-widest font-bold placeholder:font-sans placeholder:tracking-normal placeholder:text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2E7D32] disabled:bg-emerald-50/60 disabled:text-emerald-800 transition-all"
                     />
                   </div>
-                  <p className="text-[10px] text-emerald-700 mt-1">
-                    {otpVerified ? '✅ Email verified!' : 'Check your inbox for 6-digit verification code.'}
-                  </p>
+
+                  {!otpVerified ? (
+                    <button
+                      type="button"
+                      onClick={otpInput.trim().length === 6 ? handleVerifyOtp : handleSendOtp}
+                      disabled={loading}
+                      className="px-3.5 py-2 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 min-w-[84px]"
+                    >
+                      {loading ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : otpInput.trim().length === 6 ? (
+                        'Verify'
+                      ) : otpSent ? (
+                        'Verify'
+                      ) : (
+                        'Get OTP'
+                      )}
+                    </button>
+                  ) : (
+                    <div className="px-3 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center gap-1 shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Ready
+                    </div>
+                  )}
                 </div>
-              )}
+
+                <div className="flex items-center justify-between text-[10px] text-emerald-700 px-0.5">
+                  <span>
+                    {otpVerified
+                      ? '✅ Email verified successfully.'
+                      : otpSent
+                      ? 'Enter the code received in your email inbox or spam.'
+                      : 'Click "Get OTP" or enter code to verify.'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 

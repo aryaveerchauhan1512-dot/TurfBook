@@ -23,7 +23,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '25mb' }));
 
 // OTP In-Memory Store
-const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+const otpStore = new Map<string, { otp: string; expiresAt: number; verified?: boolean }>();
 
 let mailTransporter: nodemailer.Transporter | null = null;
 function getMailTransporter() {
@@ -273,19 +273,19 @@ app.post('/api/auth/verify-otp', (req, res) => {
     const record = otpStore.get(cleanEmail);
 
     if (!record) {
-      return res.status(400).json({ error: 'No OTP requested for this email or OTP expired. Please request a new OTP.' });
+      return res.status(400).json({ error: 'No OTP requested for this email or OTP expired. Please click "Send OTP".' });
     }
 
     if (Date.now() > record.expiresAt) {
       otpStore.delete(cleanEmail);
-      return res.status(400).json({ error: 'OTP code has expired. Please click Resend OTP.' });
+      return res.status(400).json({ error: 'OTP code has expired. Please click "Resend OTP".' });
     }
 
     if (record.otp !== otp.toString().trim()) {
       return res.status(400).json({ error: 'Incorrect OTP code. Please check your email and try again.' });
     }
 
-    otpStore.delete(cleanEmail);
+    record.verified = true;
     return res.json({ success: true, message: 'Email verified successfully.' });
   } catch (err: any) {
     console.error('verify-otp error:', err);
