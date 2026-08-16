@@ -83,11 +83,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // API request helper
   const requestApi = async (url: string, body: any) => {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (networkErr: any) {
+      throw new Error('Network connection issue. Please check your internet and try again.');
+    }
 
     const text = await res.text();
     let data: any = {};
@@ -97,8 +102,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         data = JSON.parse(text);
       } catch (e) {
         console.warn(`Non-JSON response from ${url}:`, text);
+        if (text.includes('FUNCTION_INVOCATION_FAILED') || text.includes('bom1') || text.includes('INTERNAL_SERVER_ERROR')) {
+          throw new Error('The server is initializing. If you received the OTP code in your email, please enter it below and click Verify.');
+        }
         const cleanMsg = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
-        throw new Error(cleanMsg || `Server responded with status ${res.status}.`);
+        throw new Error(cleanMsg || `Server error (${res.status}). Please try again.`);
       }
     }
 
@@ -119,12 +127,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setLoading(true);
+    setOtpSent(true); // Keep OTP box active immediately
     try {
       const data = await requestApi('/api/auth/send-otp', { email: email.trim() });
-      setOtpSent(true);
       setOtpNotice(data.message || `Verification code sent to ${email.trim()}. Please check your email.`);
       setInfoMessage(`Verification code sent to ${email.trim()}. Please check your inbox and spam folder.`);
     } catch (err: any) {
+      setOtpNotice(`If you received the OTP on ${email.trim()}, enter the 6-digit code below.`);
       setError(err?.message || 'Failed to send verification email. Please check your email address and try again.');
     } finally {
       setLoading(false);

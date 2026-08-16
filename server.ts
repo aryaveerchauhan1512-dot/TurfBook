@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { createServer as createViteServer } from 'vite';
 import { smartMatchDistrict, smartMatchTurf } from './src/data/indianDistricts';
 
 const app = express();
@@ -1171,6 +1170,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Vite middleware or static serving
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
