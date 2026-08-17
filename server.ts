@@ -38,22 +38,39 @@ async function sendBrevoOtpEmail(
   recipientEmail: string,
   otp: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const apiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  const apiKey = (
+    process.env.BREVO_API_KEY ||
+    process.env.SENDINBLUE_API_KEY ||
+    process.env.BREVO_KEY ||
+    process.env.BREVO_API ||
+    process.env.VITE_BREVO_API_KEY ||
+    process.env.NEXT_PUBLIC_BREVO_API_KEY ||
+    process.env.brevo_api_key ||
+    process.env.BREVO_TOKEN ||
+    ''
+  ).trim().replace(/^["']|["']$/g, '');
+
   const rawSender = (
     process.env.BREVO_SENDER_EMAIL ||
     process.env.BREVO_SENDER ||
     process.env.SMTP_FROM ||
+    process.env.VITE_BREVO_SENDER_EMAIL ||
+    process.env.brevo_sender_email ||
     'turfbook.support@gmail.com'
   ).trim().replace(/^["']|["']$/g, '');
   // Sanitize any accidental whitespace (e.g. "turf book.support@gmail.com" -> "turfbook.support@gmail.com")
   const senderEmail = rawSender.replace(/\s+/g, '');
-  const senderName = (process.env.BREVO_SENDER_NAME || 'TurfBook Verification').trim().replace(/^["']|["']$/g, '');
+  const senderName = (
+    process.env.BREVO_SENDER_NAME ||
+    process.env.VITE_BREVO_SENDER_NAME ||
+    'TurfBook Verification'
+  ).trim().replace(/^["']|["']$/g, '');
 
   if (!apiKey) {
     console.warn('[Brevo] BREVO_API_KEY is not configured in environment variables.');
     return {
       success: false,
-      error: 'BREVO_API_KEY is not configured in Vercel Environment Variables. Please go to Vercel Dashboard > Project Settings > Environment Variables, add BREVO_API_KEY, and Redeploy.',
+      error: 'BREVO_API_KEY was not detected in this deployment. In Vercel Project Settings > Environment Variables, verify that BREVO_API_KEY has the "Production" box checked, then trigger a new Redeploy.',
     };
   }
 

@@ -103,7 +103,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } catch (e) {
         console.warn(`Non-JSON response from ${url}:`, text);
         if (text.includes('FUNCTION_INVOCATION_FAILED') || text.includes('bom1') || text.includes('INTERNAL_SERVER_ERROR')) {
-          throw new Error('Vercel serverless error: Please ensure BREVO_API_KEY is added in your Vercel Project Settings > Environment Variables.');
+          throw new Error('Vercel serverless function error (FUNCTION_INVOCATION_FAILED). Please check Vercel Logs for details.');
         }
         const cleanMsg = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
         throw new Error(cleanMsg || `Server error (${res.status}). Please try again.`);
