@@ -1,7 +1,5 @@
 import express from 'express';
 import crypto from 'crypto';
-import { smartMatchDistrict, smartMatchTurf } from '../src/data/indianDistricts';
-import { DEMO_TURFS, DEMO_OWNERS, DEMO_REVIEWS } from '../src/data/demoTurfs';
 
 const app = express();
 
@@ -53,7 +51,7 @@ async function sendBrevoOtpEmail(
   ).trim().replace(/^["']|["']$/g, '');
 
   if (!apiKey) {
-    console.warn('[Brevo] BREVO_API_KEY is not configured.');
+    console.warn('[Brevo] BREVO_API_KEY is not configured in Vercel environment variables.');
     return {
       success: false,
       error: 'BREVO_API_KEY was not detected in Vercel. Please check your Vercel Project Settings > Environment Variables, make sure Production is checked, and Redeploy.',
@@ -133,6 +131,86 @@ function hashPassword(password: string): string {
   return crypto.pbkdf2Sync(password, 'turfbook-salt', 1000, 64, 'sha512').toString('hex');
 }
 
+const DEFAULT_TURFS = [
+  {
+    id: 'turf-kickoff-mumbai',
+    ownerId: 'owner-kickoff',
+    ownerName: 'Vikram Malhotra',
+    ownerPhone: '+91 98200 12345',
+    name: 'KickOff Arena & Sports Hub',
+    tagline: 'FIFA-grade 5G synthetic turf for Football & Box Cricket',
+    description: 'Premier rooftop sports arena in Bandra. Features ultra-cushioned FIFA-certified synthetic turf, high-intensity LED floodlights, professional dugout seating, and changing rooms.',
+    address: '4th Floor, Skyline Mall, Linking Road, Bandra West',
+    city: 'Mumbai',
+    distanceKm: 2.4,
+    sports: ['Football', 'Cricket', 'Futsal'],
+    isIndoor: false,
+    rating: 4.9,
+    reviewCount: 142,
+    pricePerHour: 1400,
+    images: [
+      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1529900245534-47fbf565131e?w=800&auto=format&fit=crop&q=80',
+    ],
+    facilities: ['Floodlights', 'Parking', 'Washrooms', 'Cafeteria', 'Changing Rooms'],
+    isUnposted: false,
+    isFeatured: true,
+    isPopular: true,
+    isTopRated: true,
+  },
+  {
+    id: 'turf-skyline-bengaluru',
+    ownerId: 'owner-skyline',
+    ownerName: 'Rahul Sharma',
+    ownerPhone: '+91 98450 67890',
+    name: 'Skyline Box Cricket & Football Turf',
+    tagline: 'High-netted box cricket arena with dual-color boundary marking',
+    description: 'Spacious dual-pitch arena tailored for fast-paced 7v7 Box Cricket and 6v6 Futsal. Equipped with stadium-grade perimeter netting and live scoring digital display.',
+    address: '80 Feet Road, 4th Block, Koramangala',
+    city: 'Bengaluru',
+    distanceKm: 3.1,
+    sports: ['Cricket', 'Football', 'Futsal'],
+    isIndoor: false,
+    rating: 4.8,
+    reviewCount: 98,
+    pricePerHour: 1600,
+    images: [
+      'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=800&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&auto=format&fit=crop&q=80',
+    ],
+    facilities: ['Floodlights', 'Parking', 'Washrooms', 'Cafeteria', 'Changing Rooms'],
+    isUnposted: false,
+    isFeatured: true,
+    isPopular: true,
+    isTopRated: true,
+  },
+  {
+    id: 'turf-smashpoint-delhi',
+    ownerId: 'owner-smashpoint',
+    ownerName: 'Ananya Desai',
+    ownerPhone: '+91 98110 54321',
+    name: 'SmashPoint Indoor Badminton & Pickleball Arena',
+    tagline: 'BWF-standard synthetic wooden courts with central AC',
+    description: 'Delhi’s premier indoor racquet hub offering 4 BWF-approved badminton courts and 2 dedicated USA Pickleball-regulation courts.',
+    address: 'Near Metro Pillar 140, South Extension Part II',
+    city: 'Delhi',
+    distanceKm: 4.5,
+    sports: ['Badminton', 'Pickleball', 'Table Tennis'],
+    isIndoor: true,
+    rating: 4.9,
+    reviewCount: 115,
+    pricePerHour: 950,
+    images: [
+      'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&auto=format&fit=crop&q=80',
+    ],
+    facilities: ['AC', 'Washrooms', 'Changing Rooms', 'Parking', 'Cafeteria'],
+    isUnposted: false,
+    isFeatured: true,
+    isPopular: true,
+    isTopRated: true,
+  }
+];
+
 function getInitialDb() {
   const adminPasswordHash = hashPassword('ilovepotato@123');
   const demoOwnerPasswordHash = hashPassword('demo@123');
@@ -148,15 +226,21 @@ function getInitialDb() {
         isVerified: true,
         createdAt: new Date('2026-01-01').toISOString(),
       },
-      ...DEMO_OWNERS.map((owner) => ({
-        ...owner,
+      {
+        id: 'owner-kickoff',
+        name: 'Vikram Malhotra',
+        email: 'vikram@kickoffturfs.com',
+        role: 'owner',
+        businessName: 'KickOff Sports Arena Ltd.',
+        phone: '+91 98200 12345',
+        isVerified: true,
         passwordHash: demoOwnerPasswordHash,
         createdAt: new Date('2026-01-15').toISOString(),
-      })),
+      },
     ],
-    turfs: DEMO_TURFS,
+    turfs: DEFAULT_TURFS,
     bookings: [],
-    reviews: DEMO_REVIEWS,
+    reviews: [],
     ownerApplications: [],
   };
 }
