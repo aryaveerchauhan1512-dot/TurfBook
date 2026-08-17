@@ -21,6 +21,15 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '25mb' }));
 
+// URL normalization for Vercel serverless functions
+app.use((req, res, next) => {
+  const orig = req.originalUrl || req.url || '';
+  if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user')) {
+    req.url = '/api' + orig;
+  }
+  next();
+});
+
 // OTP In-Memory Store
 const otpStore = new Map<string, { otp: string; expiresAt: number; verified?: boolean }>();
 
@@ -29,20 +38,22 @@ async function sendBrevoOtpEmail(
   recipientEmail: string,
   otp: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const apiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '').trim();
-  const senderEmail = (
+  const apiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  const rawSender = (
     process.env.BREVO_SENDER_EMAIL ||
     process.env.BREVO_SENDER ||
     process.env.SMTP_FROM ||
-    'aryaveerchauhan1512@gmail.com'
-  ).trim();
-  const senderName = (process.env.BREVO_SENDER_NAME || 'TurfBook Verification').trim();
+    'turfbook.support@gmail.com'
+  ).trim().replace(/^["']|["']$/g, '');
+  // Sanitize any accidental whitespace (e.g. "turf book.support@gmail.com" -> "turfbook.support@gmail.com")
+  const senderEmail = rawSender.replace(/\s+/g, '');
+  const senderName = (process.env.BREVO_SENDER_NAME || 'TurfBook Verification').trim().replace(/^["']|["']$/g, '');
 
   if (!apiKey) {
     console.warn('[Brevo] BREVO_API_KEY is not configured in environment variables.');
     return {
       success: false,
-      error: 'Brevo API key is not configured. Please set the BREVO_API_KEY environment variable.',
+      error: 'BREVO_API_KEY is not configured in Vercel Environment Variables. Please go to Vercel Dashboard > Project Settings > Environment Variables, add BREVO_API_KEY, and Redeploy.',
     };
   }
 
