@@ -34,6 +34,7 @@ import {
   FilterState,
   AppNotification
 } from './types';
+import { DEMO_TURFS, filterDemoTurfs } from './data/demoTurfs';
 
 export default function App() {
   // Auth state
@@ -56,9 +57,9 @@ export default function App() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [pendingTurfForBooking, setPendingTurfForBooking] = useState<Turf | null>(null);
 
-  // Data & Filters
-  const [turfs, setTurfs] = useState<Turf[]>([]);
-  const [loadingTurfs, setLoadingTurfs] = useState(true);
+  // Data & Filters - initialized with DEMO_TURFS so listings appear immediately
+  const [turfs, setTurfs] = useState<Turf[]>(DEMO_TURFS);
+  const [loadingTurfs, setLoadingTurfs] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   // Filter State
@@ -87,7 +88,7 @@ export default function App() {
     }
   }, []);
 
-  // Fetch Turfs with active filters
+  // Fetch Turfs with active filters and rock-solid fallback
   const fetchTurfs = async () => {
     setLoadingTurfs(true);
     try {
@@ -106,10 +107,18 @@ export default function App() {
         params.append('facilities', filters.facilities.join(','));
 
       const res = await fetch(`/api/turfs?${params.toString()}`);
-      const data = await res.json();
-      setTurfs(data);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setTurfs(data);
+          return;
+        }
+      }
+      // If server returns empty array or error, fallback to filtered demo listings
+      setTurfs(filterDemoTurfs(filters));
     } catch (err) {
-      console.error('Error fetching turfs:', err);
+      console.warn('Backend fetch failed or offline, displaying demo turfs:', err);
+      setTurfs(filterDemoTurfs(filters));
     } finally {
       setLoadingTurfs(false);
     }

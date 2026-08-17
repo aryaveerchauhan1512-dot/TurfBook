@@ -1,26 +1,6 @@
-export interface DemoTurfSeed {
-  id: string;
-  ownerId: string;
-  ownerName: string;
-  ownerPhone: string;
-  ownerPaymentQrUrl?: string;
-  name: string;
-  tagline: string;
-  description: string;
-  address: string;
-  city: string;
-  distanceKm: number;
-  sports: string[];
-  isIndoor: boolean;
-  rating: number;
-  reviewCount: number;
-  pricePerHour: number;
-  images: string[];
-  facilities: string[];
-  isUnposted: boolean;
-  isFeatured?: boolean;
-  isPopular?: boolean;
-  isTopRated?: boolean;
+import { Turf, FilterState } from '../types';
+
+export interface DemoTurfSeed extends Turf {
   latitude: number;
   longitude: number;
   createdAt: string;
@@ -347,3 +327,50 @@ export const DEMO_REVIEWS = [
     createdAt: '2026-08-10T17:45:00.000Z'
   }
 ];
+
+export function filterDemoTurfs(filters: Partial<FilterState>): Turf[] {
+  return DEMO_TURFS.filter((turf) => {
+    if (turf.isUnposted) return false;
+
+    if (filters.city && filters.city !== 'All') {
+      if (turf.city.toLowerCase() !== filters.city.toLowerCase()) return false;
+    }
+
+    if (filters.selectedSport && filters.selectedSport !== 'All') {
+      if (!turf.sports.some((s) => s.toLowerCase() === filters.selectedSport!.toLowerCase())) {
+        return false;
+      }
+    }
+
+    if (filters.searchQuery) {
+      const q = filters.searchQuery.toLowerCase();
+      const matchName = turf.name.toLowerCase().includes(q);
+      const matchCity = turf.city.toLowerCase().includes(q);
+      const matchSport = turf.sports.some((s) => s.toLowerCase().includes(q));
+      const matchAddress = turf.address.toLowerCase().includes(q);
+      if (!matchName && !matchCity && !matchSport && !matchAddress) {
+        return false;
+      }
+    }
+
+    if (filters.isIndoorFilter && filters.isIndoorFilter !== 'all') {
+      const isIndoorRequired = filters.isIndoorFilter === 'indoor';
+      if (turf.isIndoor !== isIndoorRequired) return false;
+    }
+
+    if (filters.minRating && filters.minRating > 0) {
+      if (turf.rating < filters.minRating) return false;
+    }
+
+    if (filters.maxPrice && filters.maxPrice < 3500) {
+      if (turf.pricePerHour > filters.maxPrice) return false;
+    }
+
+    if (filters.facilities && filters.facilities.length > 0) {
+      const hasAll = filters.facilities.every((f) => turf.facilities.includes(f));
+      if (!hasAll) return false;
+    }
+
+    return true;
+  });
+}
