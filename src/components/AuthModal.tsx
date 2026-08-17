@@ -43,6 +43,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (isOpen) {
       setRole(initialRole);
       setMode('login');
+      setEmail('');
+      setPassword('');
+      setName('');
+      setPhone('');
+      setBusinessName('');
+      setTosAccepted(false);
+      setShowPassword(false);
+      setOtpSent(false);
+      setOtpInput('');
+      setOtpVerified(false);
+      setOtpNotice(null);
       setError(null);
       setInfoMessage(null);
     }
@@ -54,7 +65,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [businessName, setBusinessName] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -67,6 +78,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  const resetFormFields = () => {
+    setEmail('');
+    setPassword('');
+    setName('');
+    setPhone('');
+    setBusinessName('');
+    setTosAccepted(false);
+    setShowPassword(false);
+    setOtpSent(false);
+    setOtpInput('');
+    setOtpVerified(false);
+    setOtpNotice(null);
+    setError(null);
+    setInfoMessage(null);
+  };
 
   if (!isOpen) return null;
 
@@ -658,8 +685,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="button"
                 onClick={() => {
                   setMode('register');
-                  setError(null);
-                  setInfoMessage(null);
+                  resetFormFields();
                 }}
                 className="text-[#2E7D32] font-bold hover:underline"
               >
@@ -673,8 +699,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="button"
                 onClick={() => {
                   setMode('login');
-                  setError(null);
-                  setInfoMessage(null);
+                  resetFormFields();
                 }}
                 className="text-[#2E7D32] font-bold hover:underline"
               >

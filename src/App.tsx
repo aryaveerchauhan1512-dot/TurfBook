@@ -57,8 +57,8 @@ export default function App() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [pendingTurfForBooking, setPendingTurfForBooking] = useState<Turf | null>(null);
 
-  // Data & Filters - initialized with DEMO_TURFS so listings appear immediately
-  const [turfs, setTurfs] = useState<Turf[]>(DEMO_TURFS);
+  // Data & Filters - initialized as empty so only real user-created turfs appear
+  const [turfs, setTurfs] = useState<Turf[]>([]);
   const [loadingTurfs, setLoadingTurfs] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
@@ -88,7 +88,7 @@ export default function App() {
     }
   }, []);
 
-  // Fetch Turfs with active filters and rock-solid fallback
+  // Fetch Turfs with active filters
   const fetchTurfs = async () => {
     setLoadingTurfs(true);
     try {
@@ -109,16 +109,15 @@ export default function App() {
       const res = await fetch(`/api/turfs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setTurfs(data);
           return;
         }
       }
-      // If server returns empty array or error, fallback to filtered demo listings
-      setTurfs(filterDemoTurfs(filters));
+      setTurfs([]);
     } catch (err) {
-      console.warn('Backend fetch failed or offline, displaying demo turfs:', err);
-      setTurfs(filterDemoTurfs(filters));
+      console.warn('Backend fetch failed or offline:', err);
+      setTurfs([]);
     } finally {
       setLoadingTurfs(false);
     }
@@ -197,6 +196,12 @@ export default function App() {
 
   const handleLogout = () => {
     setUser(null);
+    setShowUserDashboard(false);
+    setShowOwnerDashboard(false);
+    setShowAdminDashboard(false);
+    setShowDetailModal(false);
+    setSelectedTurf(null);
+    setPendingTurfForBooking(null);
     localStorage.removeItem('turfbook_user');
     sessionStorage.removeItem('turfbook_user');
   };

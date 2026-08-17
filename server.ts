@@ -244,24 +244,9 @@ function generateSampleQrCodeUrl(name: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-// Initial Database Schema with Demo Listings
+// Initial Database Schema
 function getInitialDb() {
   const adminPasswordHash = hashPassword('ilovepotato@123');
-  const demoOwnerPasswordHash = hashPassword('demo@123');
-
-  const formattedOwners = DEMO_OWNERS.map((owner) => ({
-    ...owner,
-    passwordHash: demoOwnerPasswordHash,
-    phone: encryptText(owner.phone),
-    paymentQrUrl: generateSampleQrCodeUrl(owner.businessName),
-    createdAt: new Date().toISOString(),
-  }));
-
-  const formattedTurfs = DEMO_TURFS.map((turf) => ({
-    ...turf,
-    ownerPhone: encryptText(turf.ownerPhone),
-    ownerPaymentQrUrl: generateSampleQrCodeUrl(turf.ownerName),
-  }));
 
   return {
     users: [
@@ -274,12 +259,11 @@ function getInitialDb() {
         phone: encryptText('+91 99999 88888'),
         createdAt: new Date().toISOString(),
       },
-      ...formattedOwners,
     ],
-    turfs: formattedTurfs,
+    turfs: [],
     slots: [],
     bookings: [],
-    reviews: DEMO_REVIEWS,
+    reviews: [],
     notifications: [],
   };
 }

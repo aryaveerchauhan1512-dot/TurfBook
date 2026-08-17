@@ -69,6 +69,11 @@ export const TermsOfServiceModal: React.FC<TOSModalProps> = ({
           <p>
             Personal contact details including phone numbers and credentials are fully encrypted at rest using AES encryption. Phone numbers and payment QR codes are exclusively disclosed to verified customers upon booking approval.
           </p>
+
+          <h3 className="font-bold text-slate-800 text-base">6. Platform Disclaimer & Support Assistance</h3>
+          <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 leading-relaxed">
+            <strong>Important Notice:</strong> TurfBook is not responsible for any scam that happens on this website or happened by the medium of this website, but TurfBook Support will definitely try its best to help you.
+          </div>
         </div>
 
         {/* Footer */}
