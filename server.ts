@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { smartMatchDistrict, smartMatchTurf } from './src/data/indianDistricts';
+import { DEMO_TURFS, DEMO_OWNERS, DEMO_REVIEWS } from './src/data/demoTurfs';
 
 const app = express();
 const PORT = 3000;
@@ -215,9 +216,24 @@ function generateSampleQrCodeUrl(name: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-// Initial Database Schema for production
+// Initial Database Schema with Demo Listings
 function getInitialDb() {
   const adminPasswordHash = hashPassword('ilovepotato@123');
+  const demoOwnerPasswordHash = hashPassword('demo@123');
+
+  const formattedOwners = DEMO_OWNERS.map((owner) => ({
+    ...owner,
+    passwordHash: demoOwnerPasswordHash,
+    phone: encryptText(owner.phone),
+    paymentQrUrl: generateSampleQrCodeUrl(owner.businessName),
+    createdAt: new Date().toISOString(),
+  }));
+
+  const formattedTurfs = DEMO_TURFS.map((turf) => ({
+    ...turf,
+    ownerPhone: encryptText(turf.ownerPhone),
+    ownerPaymentQrUrl: generateSampleQrCodeUrl(turf.ownerName),
+  }));
 
   return {
     users: [
@@ -228,14 +244,15 @@ function getInitialDb() {
         passwordHash: adminPasswordHash,
         role: 'admin',
         phone: encryptText('+91 99999 88888'),
-        createdAt: new Date().toISOString()
-      }
+        createdAt: new Date().toISOString(),
+      },
+      ...formattedOwners,
     ],
-    turfs: [],
+    turfs: formattedTurfs,
     slots: [],
     bookings: [],
-    reviews: [],
-    notifications: []
+    reviews: DEMO_REVIEWS,
+    notifications: [],
   };
 }
 
@@ -249,7 +266,25 @@ function readDb() {
   }
   try {
     const raw = fs.readFileSync(DB_FILE, 'utf8');
-    return JSON.parse(raw);
+    const db = JSON.parse(raw);
+
+    // Auto-seed demo listings if turfs array is empty
+    if (!Array.isArray(db.turfs) || db.turfs.length === 0) {
+      const initial = getInitialDb();
+      db.turfs = initial.turfs;
+      if (!Array.isArray(db.reviews) || db.reviews.length === 0) {
+        db.reviews = initial.reviews;
+      }
+      // Add demo owners if missing
+      for (const owner of initial.users.filter((u: any) => u.role === 'owner')) {
+        if (!db.users.some((u: any) => u.id === owner.id || u.email === owner.email)) {
+          db.users.push(owner);
+        }
+      }
+      fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
+    }
+
+    return db;
   } catch (err) {
     const initial = getInitialDb();
     try {
