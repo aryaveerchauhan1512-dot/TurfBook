@@ -2,7 +2,6 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
 import { smartMatchDistrict, smartMatchTurf } from './src/data/indianDistricts';
 
 const app = express();
@@ -24,45 +23,120 @@ app.use(express.json({ limit: '25mb' }));
 // OTP In-Memory Store
 const otpStore = new Map<string, { otp: string; expiresAt: number; verified?: boolean }>();
 
-let mailTransporter: nodemailer.Transporter | null = null;
-function getMailTransporter() {
-  if (mailTransporter) return mailTransporter;
+// Brevo Transactional Email Service
+async function sendBrevoOtpEmail(
+  recipientEmail: string,
+  otp: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const apiKey = (process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || '').trim();
+  const senderEmail = (
+    process.env.BREVO_SENDER_EMAIL ||
+    process.env.BREVO_SENDER ||
+    process.env.SMTP_FROM ||
+    'aryaveerchauhan1512@gmail.com'
+  ).trim();
+  const senderName = (process.env.BREVO_SENDER_NAME || 'TurfBook Verification').trim();
+
+  if (!apiKey) {
+    console.warn('[Brevo] BREVO_API_KEY is not configured in environment variables.');
+    return {
+      success: false,
+      error: 'Brevo API key is not configured. Please set the BREVO_API_KEY environment variable.',
+    };
+  }
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>TurfBook Verification Code</title>
+      </head>
+      <body style="margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc;">
+        <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <div style="background: linear-gradient(135deg, #15803d 0%, #166534 100%); padding: 28px 24px; text-align: center;">
+            <h1 style="color: #ffffff; font-size: 24px; font-weight: 800; margin: 0; letter-spacing: 0.5px;">
+              TURFBOOK
+            </h1>
+            <p style="color: #bbf7d0; font-size: 13px; margin: 6px 0 0 0; font-weight: 500;">
+              Account Email Verification
+            </p>
+          </div>
+
+          <div style="padding: 32px 24px;">
+            <p style="font-size: 15px; color: #334155; line-height: 1.6; margin: 0 0 16px 0;">
+              Hello,
+            </p>
+            <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">
+              Use the 6-digit One-Time Password (OTP) below to verify your email address on TurfBook:
+            </p>
+
+            <div style="background-color: #f0fdf4; border: 2px dashed #86efac; border-radius: 12px; padding: 20px; text-align: center; margin: 0 0 24px 0;">
+              <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #166534; display: inline-block;">
+                ${otp}
+              </span>
+            </div>
+
+            <p style="font-size: 13px; color: #64748b; line-height: 1.5; text-align: center; margin: 0 0 20px 0;">
+              ⏱️ This code will expire in <strong>10 minutes</strong>. Never share this OTP with anyone.
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
+
+            <p style="font-size: 11px; color: #94a3b8; line-height: 1.5; text-align: center; margin: 0;">
+              If you did not request this verification code, please ignore this email.
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
   try {
-    const host = process.env.SMTP_HOST;
-    const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
-    const user = (process.env.SMTP_USER || process.env.GMAIL_USER || 'aryaveerchauhan1512@gmail.com').trim();
-    const pass = (process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASSWORD || 'geyq hkhj ptfo kczh').replace(/\s+/g, '');
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: senderName,
+          email: senderEmail,
+        },
+        to: [
+          {
+            email: recipientEmail,
+          },
+        ],
+        subject: `Your TurfBook Verification OTP: ${otp}`,
+        htmlContent: htmlContent,
+      }),
+    });
 
-    if (!user || !pass) {
-      console.warn('SMTP credentials not configured. Please set SMTP_USER and SMTP_PASS environment variables.');
-      return null;
+    const data: any = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error('[Brevo API Error]', response.status, data);
+      const errMsg = data?.message || data?.error || `HTTP ${response.status}`;
+      return {
+        success: false,
+        error: `Brevo email sending failed: ${errMsg}. Please verify BREVO_API_KEY and that sender email (${senderEmail}) is registered in Brevo.`,
+      };
     }
 
-    if (host && host !== 'smtp.gmail.com') {
-      mailTransporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-      });
-    } else {
-      mailTransporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user, pass },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-      });
-    }
-
-    return mailTransporter;
-  } catch (err) {
-    console.error('Failed to create mail transporter:', err);
-    return null;
+    console.log(`[Brevo] OTP Email delivered to: ${recipientEmail}, messageId:`, data?.messageId);
+    return {
+      success: true,
+      messageId: data?.messageId,
+    };
+  } catch (netErr: any) {
+    console.error('[Brevo Network Error]', netErr);
+    return {
+      success: false,
+      error: `Could not connect to Brevo API: ${netErr?.message || 'Network error'}`,
+    };
   }
 }
 
@@ -197,7 +271,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// OTP Email Dispatch Endpoint
+// OTP Email Dispatch Endpoint via Brevo
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { email } = req.body || {};
@@ -211,49 +285,19 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     otpStore.set(cleanEmail, { otp, expiresAt });
 
-    const transporter = getMailTransporter();
-    if (!transporter) {
+    const result = await sendBrevoOtpEmail(cleanEmail, otp);
+
+    if (!result.success) {
       return res.status(500).json({
-        error: 'Email delivery service is not configured. Please set SMTP_USER and SMTP_PASS environment variables.'
+        error: result.error || 'Failed to send OTP email via Brevo. Please check Brevo configuration.',
       });
     }
 
-    const sender = process.env.SMTP_FROM || process.env.SMTP_USER || 'aryaveerchauhan1512@gmail.com';
-
-    try {
-      await transporter.sendMail({
-        from: `"TurfBook Verification" <${sender}>`,
-        to: cleanEmail,
-        subject: `Your TurfBook Email Verification OTP: ${otp}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 480px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="color: #2E7D32; font-size: 22px; font-weight: 800; margin: 0;">TurfBook Verification</h2>
-              <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Confirm your email address</p>
-            </div>
-            <p style="font-size: 14px; color: #334155; line-height: 1.5;">Hello,</p>
-            <p style="font-size: 14px; color: #334155; line-height: 1.5;">Use the One-Time Password (OTP) below to verify your email on TurfBook:</p>
-            <div style="background-color: #f0fdf4; padding: 18px; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #15803d; border: 2px border-dashed #86efac; border-radius: 12px; margin: 24px 0;">
-              ${otp}
-            </div>
-            <p style="font-size: 12px; color: #94a3b8; text-align: center;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
-          </div>
-        `,
-      });
-
-      console.log(`[TurfBook OTP] Email delivered to: ${cleanEmail}`);
-
-      return res.json({
-        success: true,
-        emailSent: true,
-        message: `OTP sent successfully to ${cleanEmail}. Please check your inbox or spam folder.`,
-      });
-    } catch (mailErr: any) {
-      console.error('Nodemailer send error:', mailErr);
-      return res.status(500).json({
-        error: `Could not send verification email to ${cleanEmail}. Please ensure SMTP_USER and SMTP_PASS are set in environment variables.`
-      });
-    }
+    return res.json({
+      success: true,
+      emailSent: true,
+      message: `OTP sent successfully to ${cleanEmail} via Brevo. Please check your inbox or spam folder.`,
+    });
   } catch (err: any) {
     console.error('send-otp error:', err);
     return res.status(500).json({ error: 'Failed to generate OTP code. Please try again.' });
