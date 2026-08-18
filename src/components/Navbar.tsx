@@ -228,9 +228,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => onOpenAuth('user')}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-[#2E7D32] bg-green-50 hover:bg-green-100 border border-green-200 transition-colors"
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs font-bold text-[#2E7D32] bg-green-50 hover:bg-green-100 border border-green-200 transition-colors whitespace-nowrap"
               >
-                Login
+                <span className="sm:hidden">Login</span>
+                <span className="hidden sm:inline">Player Login</span>
               </button>
               <button
                 onClick={() => onOpenAuth('owner')}
