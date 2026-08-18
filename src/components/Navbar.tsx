@@ -103,83 +103,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
               <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
             </button>
-
-            {showCityMenu && (
-              <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 py-3 z-50 animate-in fade-in duration-150 overflow-hidden">
-                <div className="px-3 pb-2 border-b border-gray-100 flex items-center justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                    Select Indian District (780+)
-                  </span>
-                  <button
-                    onClick={() => setShowCityMenu(false)}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* District Filter Input */}
-                <div className="p-2.5">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      value={districtSearch}
-                      onChange={(e) => setDistrictSearch(e.target.value)}
-                      placeholder="Type district name (e.g. Pune, Jaipur, Patna)..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
-                      autoFocus
-                    />
-                  </div>
-                </div>
-
-                {/* All India Option */}
-                <div className="px-2 pb-1">
-                  <button
-                    onClick={() => {
-                      onSelectCity('All');
-                      setShowCityMenu(false);
-                      setDistrictSearch('');
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-between ${
-                      selectedCity === 'All'
-                        ? 'bg-emerald-50 text-[#2E7D32] font-black'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>🇮🇳 All India / All Districts</span>
-                    {selectedCity === 'All' && <CheckCircle2 className="w-3.5 h-3.5 text-[#2E7D32]" />}
-                  </button>
-                </div>
-
-                {/* Districts List */}
-                <div className="max-h-56 overflow-y-auto px-2 space-y-0.5">
-                  {filteredDistricts.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => {
-                        onSelectCity(d);
-                        setShowCityMenu(false);
-                        setDistrictSearch('');
-                      }}
-                      className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-emerald-50 transition-colors flex items-center justify-between ${
-                        selectedCity === d
-                          ? 'text-[#2E7D32] font-bold bg-emerald-50'
-                          : 'text-slate-700'
-                      }`}
-                    >
-                      <span className="truncate">{d}</span>
-                      {selectedCity === d && <CheckCircle2 className="w-3.5 h-3.5 text-[#2E7D32] shrink-0" />}
-                    </button>
-                  ))}
-                  {filteredDistricts.length === 0 && (
-                    <p className="px-3 py-4 text-center text-xs text-slate-400">
-                      No district matching "{districtSearch}"
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -307,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => onOpenAuth('user')}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-[#2E7D32] bg-green-50 hover:bg-green-100 border border-green-200 transition-colors"
               >
-                Player Login
+                Login
               </button>
               <button
                 onClick={() => onOpenAuth('owner')}
@@ -324,12 +247,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="sm:hidden px-4 py-2 bg-slate-50 border-t border-gray-100 flex items-center gap-2">
         {/* District selector pill */}
         <button
-          onClick={() => setShowCityMenu(!showCityMenu)}
-          className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 shrink-0"
+          onClick={() => setShowCityMenu(true)}
+          className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 shrink-0 shadow-xs hover:border-[#2E7D32] transition-colors"
         >
           <MapPin className="w-3.5 h-3.5 text-[#2E7D32]" />
-          <span className="max-w-[90px] truncate">
-            {selectedCity === 'All' ? 'District' : selectedCity}
+          <span className="max-w-[105px] truncate">
+            {selectedCity === 'All' ? 'All Districts' : selectedCity}
           </span>
           <ChevronDown className="w-3 h-3 text-gray-400" />
         </button>
@@ -346,6 +269,98 @@ export const Navbar: React.FC<NavbarProps> = ({
           />
         </div>
       </div>
+
+      {/* DISTRICT SELECTOR MODAL / POPUP (Mobile & Desktop) */}
+      {showCityMenu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 sm:p-6 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-md overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#2E7D32]" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Select Indian District</h3>
+                  <p className="text-[10px] text-slate-500">780+ official districts across India</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCityMenu(false);
+                  setDistrictSearch('');
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/60 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-3 border-b border-gray-100">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={districtSearch}
+                  onChange={(e) => setDistrictSearch(e.target.value)}
+                  placeholder="Type district name (e.g. Pune, Jaipur, Patna, Delhi)..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2E7D32]"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* All India Option */}
+            <div className="p-2 border-b border-gray-100 bg-emerald-50/30">
+              <button
+                onClick={() => {
+                  onSelectCity('All');
+                  setShowCityMenu(false);
+                  setDistrictSearch('');
+                }}
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                  selectedCity === 'All'
+                    ? 'bg-[#2E7D32] text-white shadow-xs'
+                    : 'text-slate-700 hover:bg-emerald-50/80 bg-white border border-emerald-100'
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>🇮🇳</span>
+                  <span>All India / All Districts</span>
+                </span>
+                {selectedCity === 'All' && <CheckCircle2 className="w-4 h-4 text-white shrink-0" />}
+              </button>
+            </div>
+
+            {/* Districts List */}
+            <div className="p-2 overflow-y-auto flex-1 max-h-72 space-y-1">
+              {filteredDistricts.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => {
+                    onSelectCity(d);
+                    setShowCityMenu(false);
+                    setDistrictSearch('');
+                  }}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors flex items-center justify-between ${
+                    selectedCity === d
+                      ? 'text-[#2E7D32] font-bold bg-emerald-50 border border-emerald-200'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="truncate">{d}</span>
+                  {selectedCity === d && <CheckCircle2 className="w-4 h-4 text-[#2E7D32] shrink-0" />}
+                </button>
+              ))}
+              {filteredDistricts.length === 0 && (
+                <div className="py-8 text-center">
+                  <p className="text-xs text-slate-500 font-medium">No district matching "{districtSearch}"</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Try typing another city or district name</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DEDICATED SPORT SELECTOR BAR IN NAVIGATION - Matching Natural Tones design tabs */}
       <div className="bg-white border-t border-gray-100 px-4 sm:px-8 py-2 flex items-center gap-6 overflow-x-auto no-scrollbar">
