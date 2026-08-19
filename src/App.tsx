@@ -224,7 +224,7 @@ export default function App() {
   const recentlyAddedTurfs = [...turfs].reverse();
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col font-sans antialiased selection:bg-[#2E7D32]/20 selection:text-[#2E7D32]">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-[#2E7D32]/20 selection:text-[#2E7D32] transition-colors duration-200">
       {/* Navigation Header */}
       <Navbar
         user={user}
@@ -326,17 +326,17 @@ export default function App() {
 
         {/* Selected Sport Filter Indicator Banner */}
         {filters.selectedSport !== 'All' && (
-          <div className="bg-emerald-50 border-b border-emerald-200/80 py-3 px-4 sm:px-6 lg:px-8">
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-200/80 dark:border-emerald-800/60 py-3 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🏆</span>
-                <span className="text-xs font-black text-[#2E7D32]">
+                <span className="text-xs font-black text-[#2E7D32] dark:text-emerald-400">
                   Showing turfs exclusively supporting {filters.selectedSport}
                 </span>
               </div>
               <button
                 onClick={() => setFilters({ ...filters, selectedSport: 'All' })}
-                className="text-xs font-bold text-slate-500 hover:text-slate-800 underline"
+                className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 underline"
               >
                 Clear Sport Filter
               </button>
@@ -349,15 +349,15 @@ export default function App() {
           {loadingTurfs ? (
             <div className="py-24 text-center">
               <div className="w-10 h-10 border-4 border-[#2E7D32] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs font-bold text-slate-500">Loading sports turfs...</p>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Loading sports turfs...</p>
             </div>
           ) : turfs.length === 0 ? (
-            <div className="py-16 text-center bg-white rounded-3xl border border-slate-200 p-8 max-w-xl mx-auto shadow-sm my-8">
-              <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-[#2E7D32] mx-auto mb-4">
+            <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 max-w-xl mx-auto shadow-xs my-8 transition-colors">
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center text-[#2E7D32] dark:text-emerald-400 mx-auto mb-4">
                 <Store className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-2">No Live Venues Listed Yet</h3>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-md mx-auto mb-6">
+              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">No Live Venues Listed Yet</h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-md mx-auto mb-6">
                 {filters.city !== 'All' || filters.selectedSport !== 'All' || filters.searchQuery
                   ? `No active turfs found for "${filters.city !== 'All' ? filters.city : ''} ${filters.selectedSport !== 'All' ? filters.selectedSport : ''} ${filters.searchQuery}". Try resetting search or listing your venue!`
                   : 'Welcome to TurfBook! Are you a turf owner? List your venue now to start receiving real-time online slot bookings from players across India.'}
@@ -386,7 +386,7 @@ export default function App() {
                         facilities: [],
                       })
                     }
-                    className="w-full sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
+                    className="w-full sm:w-auto px-5 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-all"
                   >
                     Reset Location & Filters
                   </button>
@@ -400,12 +400,12 @@ export default function App() {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 bg-emerald-100 text-[#2E7D32] rounded-xl">
+                      <div className="p-2 bg-emerald-100 dark:bg-emerald-950/60 text-[#2E7D32] dark:text-emerald-400 rounded-xl">
                         <Sparkles className="w-5 h-5" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-black text-slate-800">Featured Turfs</h2>
-                        <p className="text-xs text-slate-500">
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">Featured Turfs</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Handpicked top tier stadium & indoor venues
                         </p>
                       </div>
@@ -436,12 +436,12 @@ export default function App() {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">
+                      <div className="p-2 bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 rounded-xl">
                         <Flame className="w-5 h-5" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-black text-slate-800">Popular Near You</h2>
-                        <p className="text-xs text-slate-500">
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">Popular Near You</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Most booked grounds with high player activity
                         </p>
                       </div>
@@ -472,12 +472,12 @@ export default function App() {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
-                        <Star className="w-5 h-5 fill-amber-500" />
+                      <div className="p-2 bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-xl">
+                        <Star className="w-5 h-5 fill-amber-500 dark:fill-amber-400" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-black text-slate-800">Top Rated Arenas</h2>
-                        <p className="text-xs text-slate-500">
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">Top Rated Arenas</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Consistently rated 4.7+ stars by verified players
                         </p>
                       </div>
@@ -508,12 +508,12 @@ export default function App() {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 bg-[#2E7D32]/10 text-[#2E7D32] rounded-xl">
+                      <div className="p-2 bg-[#2E7D32]/10 dark:bg-emerald-950/50 text-[#2E7D32] dark:text-emerald-400 rounded-xl">
                         <Clock className="w-5 h-5" />
                       </div>
                       <div>
-                        <h2 className="text-xl font-black text-slate-800">Recently Added</h2>
-                        <p className="text-xs text-slate-500">
+                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">Recently Added</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Fresh venue listings published by turf owners
                         </p>
                       </div>

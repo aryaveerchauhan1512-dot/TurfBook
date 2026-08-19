@@ -12,22 +12,22 @@ export const TurfCard: React.FC<TurfCardProps> = ({ turf, onSelect, onBookNow })
   return (
     <div
       onClick={() => onSelect(turf)}
-      className="turf-card bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl flex flex-col justify-between cursor-pointer group"
+      className="turf-card bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-800 shadow-xs hover:shadow-xl flex flex-col justify-between cursor-pointer group transition-colors duration-200"
     >
       <div>
         {/* Cover Image Container */}
-        <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-100">
+        <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-gray-100 dark:bg-slate-800">
           <img
             src={turf.images[0] || 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=800&q=80'}
             alt={turf.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-950/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 via-transparent to-transparent" />
 
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-            <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[10px] font-black uppercase text-gray-800 shadow-xs">
+            <span className="px-2.5 py-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-lg text-[10px] font-black uppercase text-gray-800 dark:text-gray-200 shadow-xs">
               {turf.isIndoor ? 'Indoor Arena' : 'Outdoor Turf'}
             </span>
             {turf.isFeatured && (
@@ -54,10 +54,10 @@ export const TurfCard: React.FC<TurfCardProps> = ({ turf, onSelect, onBookNow })
 
         {/* Details Content */}
         <div className="p-5">
-          <h3 className="text-base font-bold text-gray-900 group-hover:text-[#2E7D32] transition-colors line-clamp-1">
+          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#2E7D32] dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
             {turf.name}
           </h3>
-          <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">
+          <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-1 mt-0.5">
             {turf.address}
           </p>
 
@@ -66,13 +66,13 @@ export const TurfCard: React.FC<TurfCardProps> = ({ turf, onSelect, onBookNow })
             {turf.sports.slice(0, 3).map((sp) => (
               <span
                 key={sp}
-                className="px-2 py-0.5 rounded-md bg-green-50 text-[#2E7D32] text-[10px] font-bold"
+                className="px-2 py-0.5 rounded-md bg-green-50 dark:bg-emerald-950/60 text-[#2E7D32] dark:text-emerald-300 text-[10px] font-bold border border-emerald-100 dark:border-emerald-900/50"
               >
                 {sp}
               </span>
             ))}
             {turf.sports.length > 3 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-500 text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 text-[10px] font-bold">
                 +{turf.sports.length - 3} more
               </span>
             )}
@@ -81,12 +81,12 @@ export const TurfCard: React.FC<TurfCardProps> = ({ turf, onSelect, onBookNow })
       </div>
 
       {/* Footer Price & CTA */}
-      <div className="px-5 pb-5 pt-2 flex items-center justify-between border-t border-gray-100 mt-1">
+      <div className="px-5 pb-5 pt-2 flex items-center justify-between border-t border-gray-100 dark:border-slate-800 mt-1">
         <div>
-          <span className="text-[10px] uppercase font-semibold text-gray-400 block">Starting at</span>
-          <span className="text-base font-extrabold text-[#2E7D32]">
+          <span className="text-[10px] uppercase font-semibold text-gray-400 dark:text-slate-500 block">Starting at</span>
+          <span className="text-base font-extrabold text-[#2E7D32] dark:text-emerald-400">
             ₹{turf.pricePerHour}
-            <span className="text-xs font-normal text-gray-500"> / hr</span>
+            <span className="text-xs font-normal text-gray-500 dark:text-slate-400"> / hr</span>
           </span>
         </div>
 

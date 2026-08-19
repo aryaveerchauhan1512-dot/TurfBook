@@ -83,7 +83,7 @@ export const TurfBookLogo: React.FC<LogoProps> = ({
         <div className="flex flex-col justify-center leading-none">
           <span className={`font-black tracking-wider uppercase ${dimensions.textClass} font-sans`}>
             <span className="text-[#238636]">TURF</span>
-            <span className="text-[#262626]">BOOK</span>
+            <span className="text-[#262626] dark:text-white">BOOK</span>
           </span>
           <span className="text-[9px] tracking-[0.2em] text-[#238636] font-extrabold uppercase mt-0.5">
             SPORTS TURF BOOKING
