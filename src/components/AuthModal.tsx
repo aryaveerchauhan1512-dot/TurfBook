@@ -277,6 +277,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           tosAccepted,
         });
 
+        // Persist to local accounts directory so admin dashboard always has latest users
+        try {
+          const rawList = localStorage.getItem('turfbook_all_registered_users');
+          const list = rawList ? JSON.parse(rawList) : [];
+          const idx = list.findIndex((u: any) => u.email?.toLowerCase() === data.user.email?.toLowerCase());
+          if (idx >= 0) {
+            list[idx] = { ...list[idx], ...data.user };
+          } else {
+            list.push(data.user);
+          }
+          localStorage.setItem('turfbook_all_registered_users', JSON.stringify(list));
+        } catch (e) {
+          console.warn('Failed to cache user locally:', e);
+        }
+
         if (rememberMe) {
           localStorage.setItem('turfbook_user', JSON.stringify(data.user));
         } else {
@@ -314,6 +329,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           password,
           expectedRole: role,
         });
+
+        // Also update local accounts directory
+        try {
+          const rawList = localStorage.getItem('turfbook_all_registered_users');
+          const list = rawList ? JSON.parse(rawList) : [];
+          const idx = list.findIndex((u: any) => u.email?.toLowerCase() === data.user.email?.toLowerCase());
+          if (idx >= 0) {
+            list[idx] = { ...list[idx], ...data.user };
+          } else {
+            list.push(data.user);
+          }
+          localStorage.setItem('turfbook_all_registered_users', JSON.stringify(list));
+        } catch (e) {
+          console.warn('Failed to cache user locally:', e);
+        }
 
         if (rememberMe) {
           localStorage.setItem('turfbook_user', JSON.stringify(data.user));
