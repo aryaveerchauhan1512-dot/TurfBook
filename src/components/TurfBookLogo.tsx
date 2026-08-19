@@ -12,21 +12,31 @@ export const TurfBookLogo: React.FC<LogoProps> = ({
   showText = true,
 }) => {
   const dimensions = {
-    sm: { height: 34, iconWidth: 38, textClass: 'text-lg' },
-    md: { height: 44, iconWidth: 48, textClass: 'text-2xl' },
-    lg: { height: 60, iconWidth: 64, textClass: 'text-3xl' },
+    sm: {
+      svgClass: 'w-7 h-6 sm:w-8 sm:h-7',
+      textClass: 'text-sm sm:text-base',
+      subTextClass: 'text-[7px] sm:text-[8px] tracking-[0.14em]',
+    },
+    md: {
+      svgClass: 'w-8 h-7 sm:w-10 sm:h-9',
+      textClass: 'text-base sm:text-xl lg:text-2xl',
+      subTextClass: 'text-[7.5px] sm:text-[8.5px] tracking-[0.15em] sm:tracking-[0.18em]',
+    },
+    lg: {
+      svgClass: 'w-11 h-9 sm:w-14 sm:h-12',
+      textClass: 'text-xl sm:text-2xl lg:text-3xl',
+      subTextClass: 'text-[8.5px] sm:text-[10px] tracking-[0.18em] sm:tracking-[0.2em]',
+    },
   }[size];
 
   return (
-    <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
-      {/* Precision Vector SVG Logo matching exact user uploaded image */}
+    <div className={`inline-flex items-center gap-1.5 sm:gap-2.5 select-none shrink-0 ${className}`}>
+      {/* Precision Vector SVG Logo */}
       <svg
-        width={dimensions.iconWidth}
-        height={dimensions.height}
         viewBox="0 0 240 200"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="transition-transform hover:scale-105 duration-200 shrink-0"
+        className={`transition-transform hover:scale-105 duration-200 shrink-0 ${dimensions.svgClass}`}
       >
         {/* Outer Green Book Cover Shape */}
         <path
@@ -81,11 +91,11 @@ export const TurfBookLogo: React.FC<LogoProps> = ({
 
       {showText && (
         <div className="flex flex-col justify-center leading-none">
-          <span className={`font-black tracking-wider uppercase ${dimensions.textClass} font-sans`}>
+          <span className={`font-black tracking-tight sm:tracking-wider uppercase ${dimensions.textClass} font-sans`}>
             <span className="text-[#238636]">TURF</span>
             <span className="text-[#262626] dark:text-white">BOOK</span>
           </span>
-          <span className="text-[9px] tracking-[0.2em] text-[#238636] font-extrabold uppercase mt-0.5">
+          <span className={`${dimensions.subTextClass} text-[#238636] font-extrabold uppercase mt-0.5 whitespace-nowrap`}>
             SPORTS TURF BOOKING
           </span>
         </div>
@@ -93,4 +103,3 @@ export const TurfBookLogo: React.FC<LogoProps> = ({
     </div>
   );
 };
-
