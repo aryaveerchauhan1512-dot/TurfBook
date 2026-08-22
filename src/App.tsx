@@ -56,7 +56,7 @@ export default function App() {
   const [showOwnerDashboard, setShowOwnerDashboard] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [ownerInitialTab, setOwnerInitialTab] = useState<
-    'turfs' | 'bookings' | 'calendar' | 'qr' | 'notifications'
+    'turfs' | 'bookings' | 'calendar' | 'qr'
   >('turfs');
   const [ownerHighlightBookingId, setOwnerHighlightBookingId] = useState<string | undefined>(undefined);
 

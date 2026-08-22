@@ -20,29 +20,15 @@ import {
   Sparkles,
   RefreshCw,
   Image as ImageIcon,
-  Bell,
-  BellRing,
-  BellOff,
-  Send,
   CheckCircle2,
-  Smartphone,
-  Globe,
-  Info,
-  ExternalLink,
 } from 'lucide-react';
 import { Turf, Booking, User, Slot, TurfFacility, SportType } from '../types';
 import { ALL_INDIAN_DISTRICTS_FORMATTED } from '../data/indianDistricts';
-import {
-  isPushNotificationSupported,
-  requestOwnerFcmToken,
-  saveTokenToBackend,
-  removeTokenFromBackend,
-} from '../lib/fcmClient';
 
 interface OwnerDashboardProps {
   user: User;
   onClose: () => void;
-  initialTab?: 'turfs' | 'bookings' | 'calendar' | 'qr' | 'notifications';
+  initialTab?: 'turfs' | 'bookings' | 'calendar' | 'qr';
   highlightBookingId?: string;
 }
 
@@ -78,9 +64,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<
-    'turfs' | 'bookings' | 'calendar' | 'qr' | 'notifications'
-  >(initialTab);
+  const [activeTab, setActiveTab] = useState<'turfs' | 'bookings' | 'calendar' | 'qr'>(
+    initialTab === 'turfs' || initialTab === 'bookings' || initialTab === 'calendar' || initialTab === 'qr'
+      ? initialTab
+      : 'turfs'
+  );
 
   // Selected turf for slot calendar management
   const [selectedTurfForSlots, setSelectedTurfForSlots] = useState<Turf | null>(null);
@@ -125,35 +113,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [unbookTarget, setUnbookTarget] = useState<Booking | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // FCM Push Notifications State
-  const [pushSupported, setPushSupported] = useState<boolean>(true);
-  const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
-  const [pushEnabled, setPushEnabled] = useState<boolean>(false);
-  const [pushTokenCount, setPushTokenCount] = useState<number>(0);
-  const [isServerConfigured, setIsServerConfigured] = useState<boolean>(false);
-  const [pushLoading, setPushLoading] = useState<boolean>(false);
-  const [testPushLoading, setTestPushLoading] = useState<boolean>(false);
-  const [pushError, setPushError] = useState<string | null>(null);
-  const [pushSuccess, setPushSuccess] = useState<string | null>(null);
-  const [currentToken, setCurrentToken] = useState<string | null>(null);
-
   const fetchOwnerData = async () => {
     setLoading(true);
     try {
-      const [turfsRes, bookingsRes, fcmRes] = await Promise.all([
+      const [turfsRes, bookingsRes] = await Promise.all([
         fetch('/api/turfs'),
         fetch(`/api/bookings/owner/${encodeURIComponent(user.id)}`),
-        fetch(`/api/notifications/fcm-status/${encodeURIComponent(user.id)}`),
       ]);
       const turfsData = turfsRes.ok ? await turfsRes.json() : [];
       const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
-
-      if (fcmRes.ok) {
-        const fcmData = await fcmRes.json();
-        setPushEnabled(fcmData.enabled);
-        setPushTokenCount(fcmData.tokenCount);
-        setIsServerConfigured(fcmData.isServerConfigured);
-      }
 
       const myTurfs = Array.isArray(turfsData)
         ? turfsData.filter((t: Turf) => t.ownerId === user.id)
@@ -173,12 +141,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   useEffect(() => {
     fetchOwnerData();
-    // Check browser notification support & permission
-    const supported = isPushNotificationSupported();
-    setPushSupported(supported);
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPushPermission(Notification.permission);
-    }
   }, [user.id]);
 
   // If highlightBookingId is passed, switch to bookings tab
@@ -205,99 +167,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   useEffect(() => {
     fetchCalendarSlots();
   }, [selectedTurfForSlots?.id, calendarDate]);
-
-  // Enable Push Notifications
-  const handleEnablePushNotifications = async () => {
-    setPushLoading(true);
-    setPushError(null);
-    setPushSuccess(null);
-
-    try {
-      const result = await requestOwnerFcmToken();
-      setPushPermission(result.permission);
-
-      if (!result.success || !result.token) {
-        setPushError(
-          result.error ||
-            'Failed to obtain FCM registration token. Please check notification permissions.'
-        );
-        return;
-      }
-
-      setCurrentToken(result.token);
-
-      // Save token securely to backend database associated with owner account
-      const saved = await saveTokenToBackend(user.id, result.token, {
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      });
-      if (saved.success) {
-        setPushEnabled(true);
-        setPushTokenCount((prev) => (prev > 0 ? prev : 1));
-        setPushSuccess(
-          '🎉 Firebase Cloud Messaging push notifications enabled! You will now receive real-time alerts whenever a customer requests a booking, even when your tab is closed.'
-        );
-      } else {
-        setPushError(saved.error || 'Failed to save push token to server database.');
-      }
-    } catch (err: any) {
-      console.error('[FCM] Enable notification error:', err);
-      setPushError(err?.message || 'An unexpected error occurred while enabling push notifications.');
-    } finally {
-      setPushLoading(false);
-    }
-  };
-
-  // Disable Push Notifications
-  const handleDisablePushNotifications = async () => {
-    setPushLoading(true);
-    setPushError(null);
-    setPushSuccess(null);
-
-    try {
-      if (currentToken) {
-        await removeTokenFromBackend(user.id, currentToken, user.email);
-      }
-      setPushEnabled(false);
-      setPushTokenCount(0);
-      setPushSuccess('Push notifications have been disabled for this account.');
-    } catch (err: any) {
-      console.error('[FCM] Disable notification error:', err);
-      setPushError('Failed to disable notifications.');
-    } finally {
-      setPushLoading(false);
-    }
-  };
-
-  // Send Test Push Notification
-  const handleSendTestPush = async () => {
-    setTestPushLoading(true);
-    setPushError(null);
-    setPushSuccess(null);
-
-    try {
-      const res = await fetch('/api/notifications/test-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, email: user.email }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setPushError(data.error || 'Failed to dispatch test push notification via FCM.');
-      } else {
-        setPushSuccess(
-          `🚀 Test push notification dispatched successfully to ${data.sentCount} active device(s)! Look for the browser banner.`
-        );
-      }
-    } catch (err: any) {
-      console.error('[FCM] Test push error:', err);
-      setPushError(`Error sending test push: ${err?.message || 'Network error'}`);
-    } finally {
-      setTestPushLoading(false);
-    }
-  };
 
   // Toggle Slot Status on Calendar (Block / Unblock)
   const handleToggleSlotBlock = async (slot: Slot) => {
@@ -510,26 +379,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {user.name.charAt(0)}
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100">
-                    Turf Owner Portal
-                  </h2>
-                  {pushEnabled ? (
-                    <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Push Alerts Active
-                    </span>
-                  ) : (
-                    <button
-                      onClick={handleEnablePushNotifications}
-                      disabled={pushLoading}
-                      className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
-                    >
-                      <BellRing className="w-3 h-3 text-amber-600" />
-                      Enable Push Notifications
-                    </button>
-                  )}
-                </div>
+                <h2 className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100">
+                  Turf Owner Portal
+                </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {user.businessName || user.name} • {turfs.length} Active Listings
                 </p>
@@ -553,45 +405,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             </button>
           </div>
         </div>
-
-        {/* PROMINENT PUSH NOTIFICATIONS BANNER (When not enabled) */}
-        {!pushEnabled && (
-          <div className="px-4 sm:px-6 py-2.5 bg-gradient-to-r from-amber-50 via-emerald-50 to-amber-50 dark:from-slate-800/90 dark:via-emerald-950/40 dark:to-slate-800/90 border-b border-amber-200/70 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <BellRing className="w-4 h-4 animate-bounce" />
-              </div>
-              <div>
-                <span className="font-bold text-slate-800 dark:text-slate-100">
-                  Instant Booking Alerts:
-                </span>{' '}
-                <span className="text-slate-600 dark:text-slate-300">
-                  Enable browser push notifications to get alerted via FCM when a player books a slot.
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleEnablePushNotifications}
-                disabled={pushLoading}
-                className="px-3.5 py-1.5 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {pushLoading ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Bell className="w-3.5 h-3.5" />
-                )}
-                <span>{pushLoading ? 'Registering...' : 'Enable Notifications'}</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('notifications')}
-                className="px-2.5 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 font-semibold underline"
-              >
-                Settings
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Dashboard Metrics Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 p-3 sm:p-4 bg-slate-100/70 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs">
@@ -675,20 +488,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             }`}
           >
             Payment QR & Phone Settings
-          </button>
-          <button
-            onClick={() => setActiveTab('notifications')}
-            className={`pb-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'notifications'
-                ? 'border-[#2E7D32] text-[#2E7D32] dark:text-emerald-400'
-                : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-            }`}
-          >
-            <Bell className="w-3.5 h-3.5" />
-            <span>Push Notifications</span>
-            {pushEnabled && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            )}
           </button>
         </div>
 
@@ -1002,202 +801,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {savingQr ? 'Saving...' : 'Save Settings'}
               </button>
             </form>
-          )}
-
-          {/* TAB 5: PUSH NOTIFICATIONS & FCM SETTINGS */}
-          {activeTab === 'notifications' && (
-            <div className="max-w-2xl mx-auto space-y-5">
-              {/* Alert Feedback Messages */}
-              {pushSuccess && (
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-start gap-3 text-xs text-emerald-800 dark:text-emerald-200 animate-in fade-in">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-bold">Success</p>
-                    <p className="mt-0.5">{pushSuccess}</p>
-                  </div>
-                  <button
-                    onClick={() => setPushSuccess(null)}
-                    className="p-1 text-emerald-600 hover:text-emerald-800"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {pushError && (
-                <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-start gap-3 text-xs text-rose-800 dark:text-rose-200 animate-in fade-in">
-                  <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-bold">Push Notification Notice</p>
-                    <p className="mt-0.5">{pushError}</p>
-                  </div>
-                  <button
-                    onClick={() => setPushError(null)}
-                    className="p-1 text-rose-600 hover:text-rose-800"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {/* Status Overview Card */}
-              <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-2xl ${
-                      pushEnabled
-                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-[#2E7D32] dark:text-emerald-400'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
-                    }`}>
-                      <BellRing className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                        Browser Push Notifications (FCM)
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Firebase Cloud Messaging Web Push Integration
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black ${
-                        pushEnabled
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-[#2E7D32] dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          pushEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-                        }`}
-                      ></span>
-                      {pushEnabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Diagnostics Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">
-                      Browser Support
-                    </span>
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 flex items-center gap-1.5">
-                      <Smartphone className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400" />
-                      {pushSupported ? 'Supported' : 'Not Supported'}
-                    </p>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">
-                      Permission State
-                    </span>
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 capitalize flex items-center gap-1.5">
-                      <Globe className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400" />
-                      {pushPermission}
-                    </p>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">
-                      Active Registered Devices
-                    </span>
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">
-                      {pushTokenCount} Device(s)
-                    </p>
-                  </div>
-                </div>
-
-                {/* Main Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  {!pushEnabled ? (
-                    <button
-                      onClick={handleEnablePushNotifications}
-                      disabled={pushLoading}
-                      className="flex-1 py-3 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white font-bold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {pushLoading ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Bell className="w-4 h-4" />
-                      )}
-                      <span>
-                        {pushLoading
-                          ? 'Requesting Browser Permission...'
-                          : 'Enable Browser Push Notifications'}
-                      </span>
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={handleSendTestPush}
-                        disabled={testPushLoading}
-                        className="flex-1 py-3 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white font-bold text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {testPushLoading ? (
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
-                        <span>
-                          {testPushLoading
-                            ? 'Sending Test FCM Notification...'
-                            : 'Send Test Push Notification'}
-                        </span>
-                      </button>
-
-                      <button
-                        onClick={handleDisablePushNotifications}
-                        disabled={pushLoading}
-                        className="py-3 px-5 bg-slate-100 dark:bg-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 font-bold text-xs rounded-2xl transition-colors cursor-pointer"
-                      >
-                        Disable Notifications
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* How it works Information Card */}
-              <div className="bg-slate-50 dark:bg-slate-800/40 rounded-3xl p-5 border border-slate-200 dark:border-slate-700 text-xs space-y-3">
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold">
-                  <Info className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400" />
-                  <span>How TurfBook Push Notifications Work</span>
-                </div>
-                <ul className="list-disc list-inside space-y-1.5 text-slate-600 dark:text-slate-400">
-                  <li>
-                    <strong>Immediate Delivery:</strong> When a customer submits a booking request, Firebase Cloud Messaging immediately sends a push notification to your registered browser.
-                  </li>
-                  <li>
-                    <strong>Works in Background:</strong> Push notifications will reach your browser even when TurfBook is in a background tab or when the tab is closed.
-                  </li>
-                  <li>
-                    <strong>Direct Link:</strong> Clicking the notification opens the TurfBook Owner Dashboard directly into your Booking Approvals queue.
-                  </li>
-                  <li>
-                    <strong>Zero Email/Spam:</strong> Uses 100% native Web Push over HTTPS — no emails or custom polling scripts.
-                  </li>
-                </ul>
-              </div>
-
-              {/* Browser Permission Helper Guide */}
-              {pushPermission === 'denied' && (
-                <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-xs text-rose-800 dark:text-rose-200 space-y-2">
-                  <p className="font-bold flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    How to Unblock Notifications in your Browser:
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-700 dark:text-slate-300">
-                    <li>Click the lock/settings icon next to the URL in your browser address bar.</li>
-                    <li>Find <strong>Notifications</strong> and change it to <strong>Allow</strong>.</li>
-                    <li>Reload the page and click <strong>Enable Notifications</strong> above.</li>
-                  </ol>
-                </div>
-              )}
-            </div>
           )}
         </div>
       </div>
