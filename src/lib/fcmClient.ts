@@ -228,7 +228,11 @@ export async function requestOwnerFcmToken(): Promise<{
 }
 
 // Send FCM token to TurfBook backend
-export async function saveTokenToBackend(userId: string, token: string): Promise<boolean> {
+export async function saveTokenToBackend(
+  userId: string,
+  token: string,
+  user?: { email?: string; name?: string; role?: string }
+): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch('/api/notifications/fcm-token', {
       method: 'POST',
@@ -236,26 +240,39 @@ export async function saveTokenToBackend(userId: string, token: string): Promise
       body: JSON.stringify({
         userId,
         token,
+        email: user?.email,
+        name: user?.name,
+        role: user?.role,
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
       }),
     });
-    const data = await res.json();
-    return data.success === true;
-  } catch (err) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      return {
+        success: false,
+        error: data?.error || `Server returned error (${res.status})`,
+      };
+    }
+    return { success: true };
+  } catch (err: any) {
     console.error('[FCM Client] Failed to save token to backend:', err);
-    return false;
+    return { success: false, error: err?.message || 'Network error saving token' };
   }
 }
 
 // Remove FCM token from TurfBook backend
-export async function removeTokenFromBackend(userId: string, token: string): Promise<boolean> {
+export async function removeTokenFromBackend(
+  userId: string,
+  token: string,
+  email?: string
+): Promise<boolean> {
   try {
     const res = await fetch('/api/notifications/fcm-token', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, token }),
+      body: JSON.stringify({ userId, token, email }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     return data.success === true;
   } catch (err) {
     console.error('[FCM Client] Failed to remove token from backend:', err);

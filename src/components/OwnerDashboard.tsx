@@ -227,15 +227,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       setCurrentToken(result.token);
 
       // Save token securely to backend database associated with owner account
-      const saved = await saveTokenToBackend(user.id, result.token);
-      if (saved) {
+      const saved = await saveTokenToBackend(user.id, result.token, {
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      });
+      if (saved.success) {
         setPushEnabled(true);
         setPushTokenCount((prev) => (prev > 0 ? prev : 1));
         setPushSuccess(
           '🎉 Firebase Cloud Messaging push notifications enabled! You will now receive real-time alerts whenever a customer requests a booking, even when your tab is closed.'
         );
       } else {
-        setPushError('Failed to save push token to server database.');
+        setPushError(saved.error || 'Failed to save push token to server database.');
       }
     } catch (err: any) {
       console.error('[FCM] Enable notification error:', err);
@@ -253,7 +257,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
     try {
       if (currentToken) {
-        await removeTokenFromBackend(user.id, currentToken);
+        await removeTokenFromBackend(user.id, currentToken, user.email);
       }
       setPushEnabled(false);
       setPushTokenCount(0);
@@ -276,7 +280,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       const res = await fetch('/api/notifications/test-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id }),
+        body: JSON.stringify({ userId: user.id, email: user.email }),
       });
 
       const data = await res.json();
