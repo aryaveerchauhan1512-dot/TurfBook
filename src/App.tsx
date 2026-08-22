@@ -12,7 +12,10 @@ import {
   ArrowRight,
   User as UserIcon,
   Store,
-  ChevronRight
+  ChevronRight,
+  Bell,
+  BellRing,
+  X
 } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { TurfCard } from './components/TurfCard';
@@ -26,6 +29,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { TermsOfServiceModal } from './components/TermsOfServiceModal';
 import { PitchSplitBanner } from './components/PitchSplitBanner';
 import { Footer } from './components/Footer';
+import { setupForegroundMessageListener } from './lib/fcmClient';
 
 import {
   Turf,
@@ -51,6 +55,17 @@ export default function App() {
   const [showUserDashboard, setShowUserDashboard] = useState(false);
   const [showOwnerDashboard, setShowOwnerDashboard] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [ownerInitialTab, setOwnerInitialTab] = useState<
+    'turfs' | 'bookings' | 'calendar' | 'qr' | 'notifications'
+  >('turfs');
+  const [ownerHighlightBookingId, setOwnerHighlightBookingId] = useState<string | undefined>(undefined);
+
+  // Live Foreground Toast State
+  const [foregroundToast, setForegroundToast] = useState<{
+    title: string;
+    body: string;
+    bookingId?: string;
+  } | null>(null);
 
   // Turf detail modal
   const [selectedTurf, setSelectedTurf] = useState<Turf | null>(null);
@@ -73,20 +88,95 @@ export default function App() {
     facilities: [],
   });
 
-  // Check stored user on mount
+  // Check stored user on mount and process query params
   useEffect(() => {
     const saved =
       localStorage.getItem('turfbook_user') ||
       sessionStorage.getItem('turfbook_user');
+    let currentUser: User | null = null;
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        setUser(parsed);
+        currentUser = JSON.parse(saved);
+        setUser(currentUser);
       } catch (err) {
         console.error('Error parsing saved session:', err);
       }
     }
+
+    // Check URL parameters for notification clicks (e.g. ?dashboard=owner&tab=bookings&bookingId=...)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const dashboardParam = urlParams.get('dashboard');
+      const tabParam = urlParams.get('tab');
+      const bookingIdParam = urlParams.get('bookingId');
+
+      if (dashboardParam === 'owner') {
+        if (currentUser && currentUser.role === 'owner') {
+          if (tabParam) {
+            setOwnerInitialTab(tabParam as any);
+          }
+          if (bookingIdParam) {
+            setOwnerHighlightBookingId(bookingIdParam);
+          }
+          setShowOwnerDashboard(true);
+        }
+      }
+    } catch (e) {
+      console.warn('URL parsing error:', e);
+    }
   }, []);
+
+  // Listen for Service Worker messages and Foreground FCM Messages
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Service Worker postMessage listener (when notification is clicked or received)
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICK') {
+        const { bookingId } = event.data;
+        if (user && user.role === 'owner') {
+          setOwnerInitialTab('bookings');
+          if (bookingId) {
+            setOwnerHighlightBookingId(bookingId);
+          }
+          setShowOwnerDashboard(true);
+        }
+      }
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
+    // Foreground FCM listener
+    let cleanupFn: (() => void) | null = null;
+    setupForegroundMessageListener((payload) => {
+      const title = payload.title || 'New TurfBook Notification';
+      const body = payload.body || 'You received a new update.';
+      const bookingId = payload.data?.bookingId;
+
+      setForegroundToast({ title, body, bookingId });
+      fetchNotifications();
+
+      // Auto dismiss after 8s
+      setTimeout(() => {
+        setForegroundToast((prev) => (prev?.title === title ? null : prev));
+      }, 8000);
+    }).then((unsub) => {
+      if (unsub) {
+        cleanupFn = unsub;
+      }
+    });
+
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
+      if (cleanupFn) {
+        cleanupFn();
+      }
+    };
+  }, [user]);
 
   // Fetch Turfs with active filters
   const fetchTurfs = async () => {
@@ -631,7 +721,12 @@ export default function App() {
       {showOwnerDashboard && user && (
         <OwnerDashboard
           user={user}
-          onClose={() => setShowOwnerDashboard(false)}
+          initialTab={ownerInitialTab}
+          highlightBookingId={ownerHighlightBookingId}
+          onClose={() => {
+            setShowOwnerDashboard(false);
+            setOwnerHighlightBookingId(undefined);
+          }}
         />
       )}
 
@@ -641,6 +736,45 @@ export default function App() {
           user={user}
           onClose={() => setShowAdminDashboard(false)}
         />
+      )}
+
+      {/* Interactive Foreground Live Notification Toast */}
+      {foregroundToast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full animate-in slide-in-from-bottom-5 duration-300">
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border-2 border-emerald-500 shadow-2xl flex items-start gap-3 text-slate-800 dark:text-slate-100">
+            <div className="p-2.5 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-[#2E7D32] dark:text-emerald-400 shrink-0">
+              <BellRing className="w-5 h-5 animate-bounce" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-black truncate">{foregroundToast.title}</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                {foregroundToast.body}
+              </p>
+              {user?.role === 'owner' && (
+                <button
+                  onClick={() => {
+                    setOwnerInitialTab('bookings');
+                    if (foregroundToast.bookingId) {
+                      setOwnerHighlightBookingId(foregroundToast.bookingId);
+                    }
+                    setShowOwnerDashboard(true);
+                    setForegroundToast(null);
+                  }}
+                  className="mt-2 text-xs font-bold text-[#2E7D32] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Open Booking Request</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setForegroundToast(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
