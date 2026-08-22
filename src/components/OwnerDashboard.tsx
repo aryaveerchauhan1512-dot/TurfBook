@@ -403,9 +403,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         body: JSON.stringify(payload),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to save turf');
+        throw new Error(data.error || `Failed to save turf (${res.status})`);
       }
 
       setShowTurfModal(false);
