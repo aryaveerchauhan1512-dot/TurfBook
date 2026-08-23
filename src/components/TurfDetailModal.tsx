@@ -123,9 +123,9 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || `Failed to submit booking request (${res.status}).`);
+        throw new Error(data.error || 'Failed to submit booking request.');
       }
 
       setShowConfirmModal(false);
