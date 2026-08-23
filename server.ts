@@ -132,6 +132,9 @@ async function sendBrevoOtpEmail(
   `;
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -152,7 +155,9 @@ async function sendBrevoOtpEmail(
         subject: `Your TurfBook Verification OTP: ${otp}`,
         htmlContent: htmlContent,
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const data: any = await response.json().catch(() => ({}));
 
