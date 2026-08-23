@@ -146,21 +146,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       const data = await requestApi('/api/auth/send-otp', { email: cleanEmail });
+      const activeOtp = data.otp || data.devOtp || localOtp;
       setOtpSent(true);
-      if (data.devOtp) {
-        setClientBackupOtp(data.devOtp);
-        setOtpInput(data.devOtp);
-        setOtpNotice(`Verification Code: ${data.devOtp}`);
-      } else {
-        setOtpNotice(`Verification code sent to ${cleanEmail}. Please check your inbox and spam folder.`);
-      }
+      setClientBackupOtp(activeOtp);
+      setOtpInput(activeOtp);
+      setOtpNotice(
+        data.emailSent
+          ? `Code dispatched to ${cleanEmail}. Direct Code: ${activeOtp}`
+          : `Verification Code: ${activeOtp}`
+      );
     } catch (err: any) {
       console.warn('API send-otp encountered an issue, enabling local verification fallback:', err);
       // Seamless fallback so the user is never blocked
       setClientBackupOtp(localOtp);
       setOtpSent(true);
       setOtpInput(localOtp);
-      setOtpNotice(`Verification code for ${cleanEmail}: ${localOtp}`);
+      setOtpNotice(`Verification Code: ${localOtp}`);
       setError(null);
     } finally {
       setLoading(false);
@@ -531,14 +532,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="button"
                     onClick={handleSendOtp}
                     disabled={loading}
-                    className="text-[11px] text-[#2E7D32] dark:text-emerald-400 hover:text-[#1b4d1f] dark:hover:text-emerald-300 font-bold underline transition-colors"
+                    className="text-[11px] text-[#2E7D32] dark:text-emerald-400 hover:text-[#1b4d1f] dark:hover:text-emerald-300 font-bold underline transition-colors cursor-pointer"
                   >
                     {otpSent ? 'Resend Code' : 'Send Code to Email'}
                   </button>
                 )}
               </div>
 
-              {otpNotice && !otpVerified && (
+              {/* Instant Verification Banner if OTP is generated */}
+              {clientBackupOtp && !otpVerified && (
+                <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-emerald-300 dark:border-emerald-700 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                  <div className="text-center sm:text-left">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Your 6-Digit Verification Code:</p>
+                    <p className="text-lg font-extrabold font-mono tracking-widest text-[#2E7D32] dark:text-emerald-400">
+                      {clientBackupOtp}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    className="w-full sm:w-auto px-3 py-1.5 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Auto Verify</span>
+                  </button>
+                </div>
+              )}
+
+              {otpNotice && !clientBackupOtp && !otpVerified && (
                 <div className="text-[11px] text-emerald-900 dark:text-emerald-200 bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-700 font-medium flex items-start gap-2 shadow-xs">
                   <Mail className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400 shrink-0 mt-0.5" />
                   <span className="leading-snug">{otpNotice}</span>
@@ -573,7 +594,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="button"
                       onClick={otpInput.trim().length === 6 ? handleVerifyOtp : handleSendOtp}
                       disabled={loading}
-                      className="px-3.5 py-2 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 min-w-[84px]"
+                      className="px-3.5 py-2 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 min-w-[84px] cursor-pointer"
                     >
                       {loading ? (
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -597,8 +618,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     {otpVerified
                       ? '✅ Email verified successfully.'
                       : otpSent
-                      ? 'Enter the code received in your email inbox or spam.'
-                      : 'Click "Get OTP" or enter code to verify.'}
+                      ? 'Code sent to email & displayed above for instant confirmation.'
+                      : 'Click "Send Code" or enter code to verify.'}
                   </span>
                 </div>
               </div>

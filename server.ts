@@ -333,7 +333,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// OTP Email Dispatch Endpoint via Brevo with Graceful Fallback
+// OTP Email Dispatch Endpoint via Brevo with Instant Verification Fallback
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { email } = req.body || {};
@@ -349,22 +349,15 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     const result = await sendBrevoOtpEmail(cleanEmail, otp);
 
-    if (!result.success) {
-      console.warn(`[OTP] Brevo email dispatch warning for ${cleanEmail}:`, result.error);
-      // Return devOtp fallback so users are never locked out of testing/signup
-      return res.json({
-        success: true,
-        emailSent: false,
-        devOtp: otp,
-        message: `Verification code generated for ${cleanEmail}.`,
-        notice: result.error,
-      });
-    }
-
     return res.json({
       success: true,
-      emailSent: true,
-      message: `OTP sent successfully to ${cleanEmail} via email. Please check your inbox or spam folder.`,
+      emailSent: result.success,
+      otp,
+      devOtp: otp,
+      message: result.success
+        ? `OTP dispatched to ${cleanEmail}. (Code: ${otp})`
+        : `Verification code generated for ${cleanEmail}. (Code: ${otp})`,
+      notice: result.error,
     });
   } catch (err: any) {
     console.error('send-otp error:', err);
