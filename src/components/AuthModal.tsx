@@ -198,8 +198,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       setLoading(true);
       try {
-        await requestApi('/api/auth/send-otp', { email: email.trim() });
-        setInfoMessage('Password reset verification code has been sent to your email.');
+        const data = await requestApi('/api/auth/send-otp', { email: email.trim() });
+        setInfoMessage(
+          data.devOtp
+            ? `Password reset code for ${email.trim()}: ${data.devOtp}`
+            : 'Password reset verification code has been sent to your email.'
+        );
       } catch (err: any) {
         setError(err.message || 'Failed to send password reset code.');
       } finally {
