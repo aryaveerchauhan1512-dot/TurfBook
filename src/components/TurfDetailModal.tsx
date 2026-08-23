@@ -73,7 +73,7 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
     try {
       const res = await fetch(`/api/turfs/${turf.id}/slots?date=${selectedDate}`);
       if (!res.ok) throw new Error('Failed to fetch slots');
-      const data = await res.json().catch(() => []);
+      const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         setSlots(data);
       } else {
@@ -123,7 +123,7 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Failed to submit booking request.');
       }

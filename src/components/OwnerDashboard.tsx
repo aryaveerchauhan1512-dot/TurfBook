@@ -108,8 +108,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
         fetch('/api/turfs'),
         fetch(`/api/bookings/owner/${encodeURIComponent(user.id)}`),
       ]);
-      const turfsData = turfsRes.ok ? await turfsRes.json().catch(() => []) : [];
-      const bookingsData = bookingsRes.ok ? await bookingsRes.json().catch(() => []) : [];
+      const turfsData = turfsRes.ok ? await turfsRes.json() : [];
+      const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
 
       const myTurfs = Array.isArray(turfsData) ? turfsData.filter((t: Turf) => t.ownerId === user.id) : [];
       setTurfs(myTurfs);
@@ -136,10 +136,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
       const res = await fetch(
         `/api/turfs/${selectedTurfForSlots.id}/slots?date=${calendarDate}`
       );
-      const data = await res.json().catch(() => []);
-      if (Array.isArray(data)) {
-        setCalendarSlots(data);
-      }
+      const data = await res.json();
+      setCalendarSlots(data);
     } catch (err) {
       console.error('Error fetching slots:', err);
     }
@@ -206,44 +204,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     }
   };
 
-  // Drag & drop image simulation handler + real file reader
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-
-  const handleFilesSelected = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const remainingSlots = 15 - uploadedImages.length;
-    if (remainingSlots <= 0) {
-      setImageError('Maximum 15 photos allowed per turf.');
-      return;
-    }
-
-    const filesToRead = Array.from(files).slice(0, remainingSlots);
-    filesToRead.forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        if (result) {
-          setUploadedImages((prev) => {
-            if (prev.length >= 15 || prev.includes(result)) return prev;
-            return [...prev, result];
-          });
-          setImageError(null);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
+  // Drag & drop image simulation handler
   const handleImageFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (uploadedImages.length >= 15) return;
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFilesSelected(e.dataTransfer.files);
-      return;
-    }
-
     // Add high quality fallback sports image
     const sampleImages = [
       'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1200&q=80',
@@ -258,38 +222,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
   // Save Turf (Enforces min 3, max 15 images)
   const handleSaveTurf = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    let currentImages = [...uploadedImages];
-    if (imageUrlInput && imageUrlInput.trim()) {
-      const trimmedUrl = imageUrlInput.trim();
-      if (!currentImages.includes(trimmedUrl) && currentImages.length < 15) {
-        currentImages.push(trimmedUrl);
-        setUploadedImages(currentImages);
-        setImageUrlInput('');
-      }
-    }
-
-    if (!turfName.trim()) {
-      setImageError('Please enter a Turf Name.');
-      return;
-    }
-
-    if (!address.trim()) {
-      setImageError('Please enter the Full Venue Address.');
-      return;
-    }
-
-    if (!pricePerHour || Number(pricePerHour) <= 0) {
-      setImageError('Please enter a valid hourly rate (₹).');
-      return;
-    }
-
-    if (selectedSports.length === 0) {
-      setImageError('Please select at least one supported sport.');
-      return;
-    }
-
-    if (currentImages.length < 3) {
+    if (uploadedImages.length < 3) {
       setImageError('Mandatory Requirement: You must upload at least 3 photos before publishing.');
       return;
     }
@@ -301,15 +234,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
       const payload = {
         ownerId: user.id,
         ownerName: user.name,
-        name: turfName.trim(),
-        tagline: tagline.trim() || `${turfName.trim()} in ${city}`,
-        description: description.trim() || 'Modern state-of-the-art sports turf with professional amenities.',
-        address: address.trim(),
+        name: turfName,
+        tagline,
+        description,
+        address,
         city,
         sports: selectedSports,
         isIndoor,
         pricePerHour: Number(pricePerHour),
-        images: currentImages,
+        images: uploadedImages,
         facilities: selectedFacilities,
       };
 
@@ -319,14 +252,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Failed to save turf listing.');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save turf.');
 
       setShowTurfModal(false);
       fetchOwnerData();
     } catch (err: any) {
-      console.error('Error saving turf:', err);
-      setImageError(err?.message || 'Failed to save turf listing. Please try again.');
+      setImageError(err.message);
     } finally {
       setSavingTurf(false);
     }
@@ -939,40 +871,31 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                   </span>
                 </div>
 
-                {/* Drag & Drop Box + Native File Picker */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleFilesSelected(e.target.files)}
-                  className="hidden"
-                />
+                {/* Drag & Drop Box */}
                 <div
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleImageFileDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-4 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 text-center cursor-pointer hover:bg-emerald-100/50 transition-colors group"
+                  className="p-4 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 text-center cursor-pointer hover:bg-emerald-100/50 transition-colors"
                 >
-                  <Upload className="w-6 h-6 text-[#2E7D32] mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs font-bold text-slate-700">Click to Select Photos or Drag & Drop</p>
-                  <p className="text-[10px] text-slate-500">Supports JPG, PNG, WebP or enter link below</p>
+                  <Upload className="w-6 h-6 text-[#2E7D32] mx-auto mb-1" />
+                  <p className="text-xs font-bold text-slate-700">Drag & Drop Turf Photos Here</p>
+                  <p className="text-[10px] text-slate-400">or enter image link below</p>
                 </div>
 
                 <div className="flex gap-2">
                   <input
-                    type="text"
+                    type="url"
                     value={imageUrlInput}
                     onChange={(e) => setImageUrlInput(e.target.value)}
-                    placeholder="Paste Image URL (or type/paste link here)"
+                    placeholder="Paste Image URL (Unsplash or direct image link)"
                     className="flex-1 p-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800"
                   />
                   <button
                     type="button"
                     onClick={handleAddImageUrl}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-slate-800 text-white font-bold text-xs rounded-xl"
                   >
-                    Add Link
+                    Add Image
                   </button>
                 </div>
 

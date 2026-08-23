@@ -74,7 +74,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [otpInput, setOtpInput] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpNotice, setOtpNotice] = useState<string | null>(null);
-  const [clientBackupOtp, setClientBackupOtp] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +91,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setOtpInput('');
     setOtpVerified(false);
     setOtpNotice(null);
-    setClientBackupOtp(null);
     setError(null);
     setInfoMessage(null);
   };
@@ -125,14 +123,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || data.message || `Request failed (${res.status})`);
+      throw new Error(data.error || 'Operation failed. Please try again.');
     }
     return data;
   };
 
-  // Trigger Send OTP with automatic fallback
+  // Trigger Send OTP
   const handleSendOtp = async () => {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = email.trim();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       setError('Please provide a valid email address to receive the verification OTP.');
       return;
@@ -141,28 +139,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setLoading(true);
 
-    // Generate local backup OTP
-    const localOtp = Math.floor(100000 + Math.random() * 900000).toString();
-
     try {
       const data = await requestApi('/api/auth/send-otp', { email: cleanEmail });
-      const activeOtp = data.otp || data.devOtp || localOtp;
       setOtpSent(true);
-      setClientBackupOtp(activeOtp);
-      setOtpInput(activeOtp);
       setOtpNotice(
-        data.emailSent
-          ? `Code dispatched to ${cleanEmail}. Direct Code: ${activeOtp}`
-          : `Verification Code: ${activeOtp}`
+        data.devOtp
+          ? `OTP sent to ${cleanEmail}. (Code: ${data.devOtp})`
+          : `Verification code sent to ${cleanEmail}. Please check your inbox and spam folder.`
       );
+      if (data.devOtp) {
+        setOtpInput(data.devOtp);
+      }
     } catch (err: any) {
-      console.warn('API send-otp encountered an issue, enabling local verification fallback:', err);
-      // Seamless fallback so the user is never blocked
-      setClientBackupOtp(localOtp);
-      setOtpSent(true);
-      setOtpInput(localOtp);
-      setOtpNotice(`Verification Code: ${localOtp}`);
-      setError(null);
+      setError(err.message || 'Failed to send OTP. Please check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -170,7 +159,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Verify OTP
   const handleVerifyOtp = async () => {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = email.trim();
     const cleanOtp = (otpInput || '').trim();
 
     if (!cleanOtp || cleanOtp.length !== 6) {
@@ -180,14 +169,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setError(null);
     setLoading(true);
-
-    // Check against local client backup code
-    if (clientBackupOtp && cleanOtp === clientBackupOtp) {
-      setOtpVerified(true);
-      setOtpNotice('Email address verified successfully!');
-      setLoading(false);
-      return;
-    }
 
     try {
       await requestApi('/api/auth/verify-otp', {
@@ -199,14 +180,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setOtpNotice('Email address verified successfully!');
       setError(null);
     } catch (err: any) {
-      // If server check fails but client entered 6 digits in fallback mode
-      if (clientBackupOtp && cleanOtp.length === 6) {
-        setOtpVerified(true);
-        setOtpNotice('Email address verified successfully!');
-        setError(null);
-      } else {
-        setError(err.message || 'Invalid or expired OTP code.');
-      }
+      setError(err.message || 'Invalid or expired OTP code.');
     } finally {
       setLoading(false);
     }
@@ -224,12 +198,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       setLoading(true);
       try {
-        const data = await requestApi('/api/auth/send-otp', { email: email.trim() });
-        setInfoMessage(
-          data.devOtp
-            ? `Password reset code for ${email.trim()}: ${data.devOtp}`
-            : 'Password reset verification code has been sent to your email.'
-        );
+        await requestApi('/api/auth/send-otp', { email: email.trim() });
+        setInfoMessage('Password reset verification code has been sent to your email.');
       } catch (err: any) {
         setError(err.message || 'Failed to send password reset code.');
       } finally {
@@ -277,24 +247,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             return;
           }
 
-          if (clientBackupOtp && cleanOtp === clientBackupOtp) {
-            setOtpVerified(true);
-          } else {
-            // Verify OTP with backend
-            try {
-              await requestApi('/api/auth/verify-otp', {
-                email: email.trim().toLowerCase(),
-                otp: cleanOtp,
-              });
-              setOtpVerified(true);
-            } catch (vErr: any) {
-              if (clientBackupOtp && cleanOtp.length === 6) {
-                setOtpVerified(true);
-              } else {
-                throw vErr;
-              }
-            }
-          }
+          // Verify OTP with backend
+          await requestApi('/api/auth/verify-otp', {
+            email: email.trim(),
+            otp: cleanOtp,
+          });
+
+          setOtpVerified(true);
         }
 
         // Register user via backend API
@@ -532,34 +491,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="button"
                     onClick={handleSendOtp}
                     disabled={loading}
-                    className="text-[11px] text-[#2E7D32] dark:text-emerald-400 hover:text-[#1b4d1f] dark:hover:text-emerald-300 font-bold underline transition-colors cursor-pointer"
+                    className="text-[11px] text-[#2E7D32] dark:text-emerald-400 hover:text-[#1b4d1f] dark:hover:text-emerald-300 font-bold underline transition-colors"
                   >
                     {otpSent ? 'Resend Code' : 'Send Code to Email'}
                   </button>
                 )}
               </div>
 
-              {/* Instant Verification Banner if OTP is generated */}
-              {clientBackupOtp && !otpVerified && (
-                <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-emerald-300 dark:border-emerald-700 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                  <div className="text-center sm:text-left">
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Your 6-Digit Verification Code:</p>
-                    <p className="text-lg font-extrabold font-mono tracking-widest text-[#2E7D32] dark:text-emerald-400">
-                      {clientBackupOtp}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleVerifyOtp}
-                    className="w-full sm:w-auto px-3 py-1.5 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Auto Verify</span>
-                  </button>
-                </div>
-              )}
-
-              {otpNotice && !clientBackupOtp && !otpVerified && (
+              {otpNotice && !otpVerified && (
                 <div className="text-[11px] text-emerald-900 dark:text-emerald-200 bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-700 font-medium flex items-start gap-2 shadow-xs">
                   <Mail className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400 shrink-0 mt-0.5" />
                   <span className="leading-snug">{otpNotice}</span>
@@ -594,7 +533,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="button"
                       onClick={otpInput.trim().length === 6 ? handleVerifyOtp : handleSendOtp}
                       disabled={loading}
-                      className="px-3.5 py-2 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 min-w-[84px] cursor-pointer"
+                      className="px-3.5 py-2 bg-[#2E7D32] hover:bg-[#1b4d1f] text-white text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 disabled:opacity-50 min-w-[84px]"
                     >
                       {loading ? (
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -618,8 +557,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     {otpVerified
                       ? '✅ Email verified successfully.'
                       : otpSent
-                      ? 'Code sent to email & displayed above for instant confirmation.'
-                      : 'Click "Send Code" or enter code to verify.'}
+                      ? 'Enter the code received in your email inbox or spam.'
+                      : 'Click "Get OTP" or enter code to verify.'}
                   </span>
                 </div>
               </div>

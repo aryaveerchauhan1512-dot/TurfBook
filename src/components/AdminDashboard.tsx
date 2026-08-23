@@ -37,13 +37,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onClose })
         fetch('/api/turfs'),
       ]);
 
-      const statsData = statsRes.ok ? await statsRes.json().catch(() => null) : null;
-      const usersData = usersRes.ok ? await usersRes.json().catch(() => []) : [];
-      const turfsData = turfsRes.ok ? await turfsRes.json().catch(() => []) : [];
+      const statsData = await statsRes.json();
+      const usersData = await usersRes.json();
+      const turfsData = await turfsRes.json();
 
       setStats(statsData);
-      setUsersList(Array.isArray(usersData) ? usersData : []);
-      setTurfsList(Array.isArray(turfsData) ? turfsData : []);
+      setUsersList(usersData);
+      setTurfsList(turfsData);
     } catch (err) {
       console.error('Error loading admin data:', err);
     } finally {

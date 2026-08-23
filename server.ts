@@ -24,17 +24,7 @@ app.use(express.json({ limit: '25mb' }));
 // URL normalization for Vercel serverless functions
 app.use((req, res, next) => {
   const orig = req.originalUrl || req.url || '';
-  if (
-    orig.startsWith('/auth/') ||
-    orig.startsWith('/turfs') ||
-    orig.startsWith('/admin') ||
-    orig.startsWith('/bookings') ||
-    orig.startsWith('/user') ||
-    orig.startsWith('/owner') ||
-    orig.startsWith('/reviews') ||
-    orig.startsWith('/notifications') ||
-    orig.startsWith('/health')
-  ) {
+  if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user')) {
     req.url = '/api' + orig;
   }
   next();
@@ -132,9 +122,6 @@ async function sendBrevoOtpEmail(
   `;
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
-
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -155,9 +142,7 @@ async function sendBrevoOtpEmail(
         subject: `Your TurfBook Verification OTP: ${otp}`,
         htmlContent: htmlContent,
       }),
-      signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     const data: any = await response.json().catch(() => ({}));
 
@@ -333,7 +318,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// OTP Email Dispatch Endpoint via Brevo with Instant Verification Fallback
+// OTP Email Dispatch Endpoint via Brevo
 app.post('/api/auth/send-otp', async (req, res) => {
   try {
     const { email } = req.body || {};
@@ -349,19 +334,20 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     const result = await sendBrevoOtpEmail(cleanEmail, otp);
 
+    if (!result.success) {
+      return res.status(500).json({
+        error: result.error || 'Failed to send OTP email via Brevo. Please check Brevo configuration.',
+      });
+    }
+
     return res.json({
       success: true,
-      emailSent: result.success,
-      otp,
-      devOtp: otp,
-      message: result.success
-        ? `OTP dispatched to ${cleanEmail}. (Code: ${otp})`
-        : `Verification code generated for ${cleanEmail}. (Code: ${otp})`,
-      notice: result.error,
+      emailSent: true,
+      message: `OTP sent successfully to ${cleanEmail} via Brevo. Please check your inbox or spam folder.`,
     });
   } catch (err: any) {
     console.error('send-otp error:', err);
-    return res.status(500).json({ error: err?.message || 'Failed to generate OTP code. Please try again.' });
+    return res.status(500).json({ error: 'Failed to generate OTP code. Please try again.' });
   }
 });
 
@@ -645,155 +631,134 @@ app.get('/api/turfs/:id', (req, res) => {
 
 // Create Turf (Owner required, MANDATORY MIN 3 IMAGES)
 app.post('/api/turfs', (req, res) => {
-  try {
-    const {
-      ownerId,
-      ownerName,
-      name,
-      tagline,
-      description,
-      address,
-      city,
-      sports,
-      isIndoor,
-      pricePerHour,
-      images,
-      facilities
-    } = req.body || {};
+  const {
+    ownerId,
+    ownerName,
+    name,
+    tagline,
+    description,
+    address,
+    city,
+    sports,
+    isIndoor,
+    pricePerHour,
+    images,
+    facilities
+  } = req.body;
 
-    if (!images || !Array.isArray(images) || images.length < 3) {
-      return res.status(400).json({
-        error: 'Mandatory requirement: Every turf must have at least 3 uploaded photos before publishing.'
-      });
-    }
+  if (!images || !Array.isArray(images) || images.length < 3) {
+    return res.status(400).json({
+      error: 'Mandatory requirement: Every turf must have at least 3 uploaded photos before publishing.'
+    });
+  }
 
-    if (images.length > 15) {
-      return res.status(400).json({ error: 'Maximum 15 photos allowed per turf.' });
-    }
+  if (images.length > 15) {
+    return res.status(400).json({ error: 'Maximum 15 photos allowed per turf.' });
+  }
 
-    if (!name || !address || !city || !pricePerHour || !sports || sports.length === 0) {
-      return res.status(400).json({ error: 'Please fill in all required turf information fields.' });
-    }
+  if (!name || !address || !city || !pricePerHour || !sports || sports.length === 0) {
+    return res.status(400).json({ error: 'Please fill in all required turf information fields.' });
+  }
 
-    const db = readDb();
-    if (!Array.isArray(db.users)) db.users = [];
-    if (!Array.isArray(db.turfs)) db.turfs = [];
-    if (!Array.isArray(db.slots)) db.slots = [];
+  const db = readDb();
+  const owner = db.users.find((u: any) => u.id === ownerId);
 
-    const owner = db.users.find((u: any) => u.id === ownerId);
+  const newTurf: any = {
+    id: `turf-${Date.now()}`,
+    ownerId,
+    ownerName: ownerName || owner?.businessName || owner?.name || 'Turf Owner',
+    ownerPhone: owner?.phone || encryptText('+91 98765 43210'),
+    ownerPaymentQrUrl: owner?.paymentQrUrl || generateSampleQrCodeUrl(name),
+    name,
+    tagline: tagline || `${name} in ${city}`,
+    description: description || 'Modern state-of-the-art sports turf with professional amenities.',
+    address,
+    city,
+    distanceKm: Math.floor(Math.random() * 50) / 10 + 1.2,
+    sports,
+    isIndoor: Boolean(isIndoor),
+    rating: 5.0,
+    reviewCount: 0,
+    pricePerHour: Number(pricePerHour),
+    images,
+    facilities: facilities || ['Floodlights', 'Parking', 'Washrooms'],
+    isUnposted: false,
+    createdAt: new Date().toISOString()
+  };
 
-    const newTurf: any = {
-      id: `turf-${Date.now()}`,
-      ownerId: ownerId || (owner ? owner.id : 'owner-default'),
-      ownerName: ownerName || owner?.businessName || owner?.name || 'Turf Owner',
-      ownerPhone: owner?.phone || encryptText('+91 98765 43210'),
-      ownerPaymentQrUrl: owner?.paymentQrUrl || generateSampleQrCodeUrl(name),
-      name: name.trim(),
-      tagline: tagline ? tagline.trim() : `${name} in ${city}`,
-      description: description ? description.trim() : 'Modern state-of-the-art sports turf with professional amenities.',
-      address: address.trim(),
-      city: city.trim(),
-      distanceKm: Math.floor(Math.random() * 50) / 10 + 1.2,
-      sports: Array.isArray(sports) ? sports : ['Football'],
-      isIndoor: Boolean(isIndoor),
-      rating: 5.0,
-      reviewCount: 0,
-      pricePerHour: Number(pricePerHour),
-      images,
-      facilities: Array.isArray(facilities) && facilities.length > 0 ? facilities : ['Floodlights', 'Parking', 'Washrooms'],
-      isUnposted: false,
-      createdAt: new Date().toISOString()
-    };
+  db.turfs.push(newTurf);
 
-    db.turfs.push(newTurf);
+  // Generate slots for this turf for next 3 days
+  const timeSlots = [
+    '06:00 - 07:00',
+    '07:00 - 08:00',
+    '08:00 - 09:00',
+    '09:00 - 10:00',
+    '16:00 - 17:00',
+    '17:00 - 18:00',
+    '18:00 - 19:00',
+    '19:00 - 20:00',
+    '20:00 - 21:00'
+  ];
+  const dates = [
+    new Date().toISOString().split('T')[0],
+    new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
+  ];
 
-    // Generate slots for this turf for next 3 days
-    const timeSlots = [
-      '06:00 - 07:00',
-      '07:00 - 08:00',
-      '08:00 - 09:00',
-      '09:00 - 10:00',
-      '16:00 - 17:00',
-      '17:00 - 18:00',
-      '18:00 - 19:00',
-      '19:00 - 20:00',
-      '20:00 - 21:00'
-    ];
-    const dates = [
-      new Date().toISOString().split('T')[0],
-      new Date(Date.now() + 86400000).toISOString().split('T')[0],
-      new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
-    ];
-
-    dates.forEach((date) => {
-      timeSlots.forEach((time, tIdx) => {
-        db.slots.push({
-          id: `slot-${newTurf.id}-${date}-${tIdx}`,
-          turfId: newTurf.id,
-          date,
-          time,
-          price: newTurf.pricePerHour,
-          status: 'available'
-        });
+  dates.forEach((date) => {
+    timeSlots.forEach((time, tIdx) => {
+      db.slots.push({
+        id: `slot-${newTurf.id}-${date}-${tIdx}`,
+        turfId: newTurf.id,
+        date,
+        time,
+        price: newTurf.pricePerHour,
+        status: 'available'
       });
     });
+  });
 
-    writeDb(db);
-    return res.json({ success: true, turf: newTurf });
-  } catch (err: any) {
-    console.error('Error creating turf:', err);
-    return res.status(500).json({ error: err?.message || 'Server error while saving turf listing.' });
-  }
+  writeDb(db);
+  res.json({ success: true, turf: newTurf });
 });
 
 // Edit Turf
 app.put('/api/turfs/:id', (req, res) => {
-  try {
-    const { id } = req.params;
-    const db = readDb();
-    if (!Array.isArray(db.turfs)) db.turfs = [];
-    const turfIdx = db.turfs.findIndex((t: any) => t.id === id);
+  const { id } = req.params;
+  const db = readDb();
+  const turfIdx = db.turfs.findIndex((t: any) => t.id === id);
 
-    if (turfIdx === -1) {
-      return res.status(404).json({ error: 'Turf listing not found.' });
-    }
-
-    const { images } = req.body;
-    if (images && Array.isArray(images) && images.length < 3) {
-      return res.status(400).json({ error: 'Minimum 3 images are required for publishing.' });
-    }
-
-    db.turfs[turfIdx] = {
-      ...db.turfs[turfIdx],
-      ...req.body,
-      images: images || db.turfs[turfIdx].images
-    };
-
-    writeDb(db);
-    return res.json({ success: true, turf: db.turfs[turfIdx] });
-  } catch (err: any) {
-    console.error('Error updating turf:', err);
-    return res.status(500).json({ error: err?.message || 'Server error while updating turf listing.' });
+  if (turfIdx === -1) {
+    return res.status(404).json({ error: 'Turf listing not found.' });
   }
+
+  const { images } = req.body;
+  if (images && Array.isArray(images) && images.length < 3) {
+    return res.status(400).json({ error: 'Minimum 3 images are required for publishing.' });
+  }
+
+  db.turfs[turfIdx] = {
+    ...db.turfs[turfIdx],
+    ...req.body,
+    images: images || db.turfs[turfIdx].images
+  };
+
+  writeDb(db);
+  res.json({ success: true, turf: db.turfs[turfIdx] });
 });
 
 // Unpost / Delete Turf
 app.delete('/api/turfs/:id', (req, res) => {
-  try {
-    const db = readDb();
-    if (!Array.isArray(db.turfs)) db.turfs = [];
-    const turf = db.turfs.find((t: any) => t.id === req.params.id);
-    if (!turf) {
-      return res.status(404).json({ error: 'Turf not found.' });
-    }
-
-    turf.isUnposted = true;
-    writeDb(db);
-    return res.json({ success: true, message: 'Turf listing unposted successfully.' });
-  } catch (err: any) {
-    console.error('Error deleting turf:', err);
-    return res.status(500).json({ error: err?.message || 'Server error while deleting turf listing.' });
+  const db = readDb();
+  const turf = db.turfs.find((t: any) => t.id === req.params.id);
+  if (!turf) {
+    return res.status(404).json({ error: 'Turf not found.' });
   }
+
+  turf.isUnposted = true;
+  writeDb(db);
+  res.json({ success: true, message: 'Turf listing unposted successfully.' });
 });
 
 // Slot API

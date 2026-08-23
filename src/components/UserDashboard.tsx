@@ -45,7 +45,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, onClose }) =
     try {
       const res = await fetch(`/api/bookings/user/${encodeURIComponent(user.id)}`);
       if (res.ok) {
-        const data = await res.json().catch(() => []);
+        const data = await res.json();
         if (Array.isArray(data)) {
           setBookings(data);
         }
@@ -404,10 +404,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, onClose }) =
                   Upload Photo (Optional)
                 </label>
                 <input
-                  type="text"
+                  type="url"
                   value={reviewPhoto}
                   onChange={(e) => setReviewPhoto(e.target.value)}
-                  placeholder="Paste image URL (optional)"
+                  placeholder="Paste image URL"
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/30"
                 />
               </div>
