@@ -121,9 +121,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       throw new Error('Server connection error. Please ensure the backend is active.');
     }
 
-    const data = await res.json().catch(() => ({}));
+    let data: any = {};
+    try {
+      const text = await res.text();
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
+    }
+
     if (!res.ok) {
-      throw new Error(data.error || 'Operation failed. Please try again.');
+      throw new Error(data.error || (res.status === 404 ? 'Service endpoint not found.' : 'Operation failed. Please try again.'));
     }
     return data;
   };

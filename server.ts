@@ -19,12 +19,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Avoid body-parser hanging when req.body was pre-parsed by Vercel serverless functions
+app.use((req, res, next) => {
+  if (req.body !== undefined && typeof req.body === 'object' && req.body !== null) {
+    (req as any)._body = true;
+  }
+  next();
+});
+
 app.use(express.json({ limit: '25mb' }));
 
 // URL normalization for Vercel serverless functions
 app.use((req, res, next) => {
   const orig = req.originalUrl || req.url || '';
-  if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user')) {
+  if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user') || orig.startsWith('/owner') || orig.startsWith('/reviews') || orig.startsWith('/notifications')) {
     req.url = '/api' + orig;
   }
   next();
