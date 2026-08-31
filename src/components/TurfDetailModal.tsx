@@ -123,7 +123,14 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to submit booking request.');
       }
@@ -135,7 +142,7 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
       fetchSlots();
       onBookingCreated();
     } catch (err: any) {
-      setBookingErrorMsg(err.message);
+      setBookingErrorMsg(err.message || 'Failed to submit booking request.');
     } finally {
       setSubmittingBooking(false);
     }

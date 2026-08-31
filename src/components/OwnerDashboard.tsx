@@ -108,8 +108,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
         fetch('/api/turfs'),
         fetch(`/api/bookings/owner/${encodeURIComponent(user.id)}`),
       ]);
-      const turfsData = turfsRes.ok ? await turfsRes.json() : [];
-      const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
+      const turfsData = turfsRes.ok ? await turfsRes.json().catch(() => []) : [];
+      const bookingsData = bookingsRes.ok ? await bookingsRes.json().catch(() => []) : [];
 
       const myTurfs = Array.isArray(turfsData) ? turfsData.filter((t: Turf) => t.ownerId === user.id) : [];
       setTurfs(myTurfs);
@@ -136,8 +136,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
       const res = await fetch(
         `/api/turfs/${selectedTurfForSlots.id}/slots?date=${calendarDate}`
       );
-      const data = await res.json();
-      setCalendarSlots(data);
+      if (res.ok) {
+        const data = await res.json().catch(() => []);
+        setCalendarSlots(Array.isArray(data) ? data : []);
+      }
     } catch (err) {
       console.error('Error fetching slots:', err);
     }
@@ -185,12 +187,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
 
   // Add image URL
   const handleAddImageUrl = () => {
-    if (!imageUrlInput) return;
+    const trimmed = imageUrlInput.trim();
+    if (!trimmed) return;
     if (uploadedImages.length >= 15) {
       setImageError('Maximum 15 photos allowed per turf.');
       return;
     }
-    setUploadedImages([...uploadedImages, imageUrlInput]);
+    setUploadedImages([...uploadedImages, trimmed]);
     setImageUrlInput('');
     setImageError(null);
   };
@@ -234,10 +237,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
       const payload = {
         ownerId: user.id,
         ownerName: user.name,
-        name: turfName,
-        tagline,
-        description,
-        address,
+        name: turfName.trim(),
+        tagline: tagline.trim(),
+        description: description.trim(),
+        address: address.trim(),
         city,
         sports: selectedSports,
         isIndoor,
@@ -252,13 +255,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save turf.');
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save turf. Please try again.');
+      }
 
       setShowTurfModal(false);
+      setEditingTurf(null);
       fetchOwnerData();
     } catch (err: any) {
-      setImageError(err.message);
+      setImageError(err.message || 'An unexpected error occurred while saving the turf.');
     } finally {
       setSavingTurf(false);
     }
