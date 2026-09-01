@@ -121,18 +121,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       throw new Error('Server connection error. Please ensure the backend is active.');
     }
 
-    let data: any = {};
-    let rawText = '';
-    try {
-      rawText = await res.text();
-      data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-      data = {};
-    }
-
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg = data.error || data.message || (res.status === 404 ? 'Service endpoint (/api) was not found on this server.' : `Server error (${res.status}): ${rawText.slice(0, 100) || 'Operation failed'}`);
-      throw new Error(msg);
+      throw new Error(data.error || 'Operation failed. Please try again.');
     }
     return data;
   };
