@@ -4,7 +4,6 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { smartMatchDistrict, smartMatchTurf } from './src/data/indianDistricts';
 import { DEMO_TURFS, DEMO_OWNERS, DEMO_REVIEWS } from './src/data/demoTurfs';
-import { initializeFirebaseAdmin, sendFcmPushToTokens } from './server/pushNotification';
 
 const app = express();
 const PORT = 3000;
@@ -22,34 +21,10 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '25mb' }));
 
-// Serve Service Worker with required headers for Firebase Cloud Messaging
-app.get('/firebase-messaging-sw.js', (req, res) => {
-  const swPaths = [
-    path.join(process.cwd(), 'public', 'firebase-messaging-sw.js'),
-    path.join(process.cwd(), 'dist', 'firebase-messaging-sw.js'),
-  ];
-  for (const swPath of swPaths) {
-    if (fs.existsSync(swPath)) {
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('Service-Worker-Allowed', '/');
-      return res.sendFile(swPath);
-    }
-  }
-  res.status(404).send('Service worker script not found');
-});
-
 // URL normalization for Vercel serverless functions
 app.use((req, res, next) => {
   const orig = req.originalUrl || req.url || '';
-  if (
-    orig.startsWith('/auth/') ||
-    orig.startsWith('/turfs') ||
-    orig.startsWith('/admin') ||
-    orig.startsWith('/bookings') ||
-    orig.startsWith('/user') ||
-    orig.startsWith('/notifications') ||
-    orig.startsWith('/config')
-  ) {
+  if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user')) {
     req.url = '/api' + orig;
   }
   next();
@@ -847,7 +822,7 @@ app.post('/api/turfs/:id/slots/block', (req, res) => {
 });
 
 // Bookings Request API
-app.post('/api/bookings/request', async (req, res) => {
+app.post('/api/bookings/request', (req, res) => {
   const { turfId, slotId, userId, userName, userEmail, userPhone, sport } = req.body;
   const db = readDb();
 
@@ -895,21 +870,18 @@ app.post('/api/bookings/request', async (req, res) => {
 
   db.bookings.push(newBooking);
 
-  // Send notification to Owner in DB
-  const notifTitle = 'New TurfBook Booking Request';
-  const notifBody = `New booking request for ${turf.name} at ${slot.time} on ${slot.date} (${userName}).`;
-
+  // Send notification to Owner
   db.notifications.push({
     id: `notif-${Date.now()}-1`,
     recipientUserId: turf.ownerId,
-    title: notifTitle,
-    message: notifBody,
+    title: 'New Booking Request ⚽',
+    message: `${userName} requested slot ${slot.time} on ${slot.date} for ${turf.name}.`,
     date: new Date().toISOString(),
     read: false,
     type: 'booking_request'
   });
 
-  // Notification to User in DB
+  // Notification to User
   db.notifications.push({
     id: `notif-${Date.now()}-2`,
     recipientUserId: userId,
@@ -919,39 +891,6 @@ app.post('/api/bookings/request', async (req, res) => {
     read: false,
     type: 'booking_request'
   });
-
-  // Firebase Cloud Messaging (FCM) Push Notification to Owner
-  const owner = db.users.find((u: any) => u.id === turf.ownerId);
-  const ownerTokens: string[] = owner?.fcmTokens || [];
-
-  if (ownerTokens.length > 0) {
-    try {
-      const pushResult = await sendFcmPushToTokens(ownerTokens, {
-        title: notifTitle,
-        body: notifBody,
-        url: `/?dashboard=owner&tab=bookings&bookingId=${bookingId}`,
-        bookingId,
-        turfId: turf.id,
-        turfName: turf.name,
-        data: {
-          type: 'booking_request',
-          bookingId,
-          turfId: turf.id,
-          date: slot.date,
-          time: slot.time,
-        },
-      });
-
-      // Cleanup stale / invalid tokens automatically
-      if (pushResult.staleTokensRemoved && pushResult.staleTokensRemoved.length > 0) {
-        owner.fcmTokens = owner.fcmTokens.filter(
-          (tok: string) => !pushResult.staleTokensRemoved!.includes(tok)
-        );
-      }
-    } catch (fcmErr) {
-      console.warn('[FCM Request Notification Error]', fcmErr);
-    }
-  }
 
   writeDb(db);
   res.json({ success: true, booking: newBooking });
@@ -1202,206 +1141,6 @@ app.post('/api/notifications/mark-read', (req, res) => {
   });
   writeDb(db);
   res.json({ success: true });
-});
-
-// Firebase Cloud Messaging (FCM) Endpoints
-app.get('/api/config/firebase-public', (req, res) => {
-  const apiKey =
-    process.env.VITE_FIREBASE_API_KEY ||
-    process.env.FIREBASE_API_KEY ||
-    process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-    'AIzaSyDZjW74kKPZO-qesqpY158JBBBaMalb808';
-  const projectId =
-    process.env.VITE_FIREBASE_PROJECT_ID ||
-    process.env.FIREBASE_PROJECT_ID ||
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-    'turfbook-7b4ec';
-  const messagingSenderId =
-    process.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
-    process.env.FIREBASE_MESSAGING_SENDER_ID ||
-    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ||
-    '190824969167';
-  const appId =
-    process.env.VITE_FIREBASE_APP_ID ||
-    process.env.FIREBASE_APP_ID ||
-    process.env.NEXT_PUBLIC_FIREBASE_APP_ID ||
-    '1:190824969167:web:7ec6d681aa3a7e9d8c18ba';
-  const vapidKey =
-    process.env.VITE_FIREBASE_VAPID_KEY ||
-    process.env.FIREBASE_VAPID_KEY ||
-    process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY ||
-    'BEhTARgxwOzUZZ_GA0lcOugrMxBQXGNeTPmAFiMm6LXB9gzhzWa_3ch-bka_xf9y6RLfx4iGpufWkG6eTTU8Aw0';
-  const authDomain =
-    process.env.VITE_FIREBASE_AUTH_DOMAIN ||
-    process.env.FIREBASE_AUTH_DOMAIN ||
-    (projectId ? `${projectId}.firebaseapp.com` : 'turfbook-7b4ec.firebaseapp.com');
-  const storageBucket =
-    process.env.VITE_FIREBASE_STORAGE_BUCKET ||
-    process.env.FIREBASE_STORAGE_BUCKET ||
-    (projectId ? `${projectId}.firebasestorage.app` : 'turfbook-7b4ec.firebasestorage.app');
-
-  const configured = Boolean(apiKey && projectId && messagingSenderId && appId);
-
-  res.json({
-    configured,
-    config: configured
-      ? {
-          apiKey,
-          projectId,
-          messagingSenderId,
-          appId,
-          vapidKey,
-          authDomain,
-          storageBucket,
-        }
-      : null,
-  });
-});
-
-// Register FCM Registration Token for User/Owner
-app.post('/api/notifications/fcm-token', (req, res) => {
-  const { userId, token, email, name, role, userAgent } = req.body;
-  if (!userId || !token) {
-    return res.status(400).json({ error: 'userId and token are required.' });
-  }
-
-  const db = readDb();
-  let user = db.users.find(
-    (u: any) => u.id === userId || (email && u.email && u.email.toLowerCase() === email.toLowerCase())
-  );
-
-  if (!user) {
-    // Auto-upsert user record so push token registration never fails if user was created locally
-    user = {
-      id: userId,
-      email: email || `user_${userId}@turfbook.app`,
-      name: name || 'Turf Owner',
-      role: role || 'owner',
-      phone: '',
-      isVerified: true,
-      fcmTokens: [token],
-      createdAt: new Date().toISOString(),
-    };
-    db.users.push(user);
-    console.log(`[FCM API] Created user record and registered FCM token for ${user.role} ${user.name}`);
-  } else {
-    if (!Array.isArray(user.fcmTokens)) {
-      user.fcmTokens = [];
-    }
-    if (!user.fcmTokens.includes(token)) {
-      user.fcmTokens.push(token);
-      console.log(`[FCM API] Added FCM token for ${user.role} ${user.name} (${user.email})`);
-    }
-    if (user.id !== userId) {
-      user.id = userId;
-    }
-  }
-
-  writeDb(db);
-  res.json({
-    success: true,
-    message: 'Push notification token registered successfully.',
-    tokenCount: user.fcmTokens.length,
-  });
-});
-
-// Remove FCM Registration Token for User/Owner
-app.delete('/api/notifications/fcm-token', (req, res) => {
-  const { userId, token, email } = req.body;
-  if ((!userId && !email) || !token) {
-    return res.status(400).json({ error: 'userId/email and token are required.' });
-  }
-
-  const db = readDb();
-  const user = db.users.find(
-    (u: any) => (userId && u.id === userId) || (email && u.email && u.email.toLowerCase() === email.toLowerCase())
-  );
-  if (!user) {
-    return res.status(404).json({ error: 'User not found.' });
-  }
-
-  if (Array.isArray(user.fcmTokens)) {
-    user.fcmTokens = user.fcmTokens.filter((t: string) => t !== token);
-  }
-
-  writeDb(db);
-  res.json({
-    success: true,
-    message: 'Push notification token removed.',
-    tokenCount: user.fcmTokens?.length || 0,
-  });
-});
-
-// Check Owner FCM Push Status
-app.get('/api/notifications/fcm-status/:userId', (req, res) => {
-  const db = readDb();
-  const userId = req.params.userId;
-  const user = db.users.find((u: any) => u.id === userId);
-
-  const tokenCount = Array.isArray(user?.fcmTokens) ? user.fcmTokens.length : 0;
-  res.json({
-    enabled: tokenCount > 0,
-    tokenCount,
-    isServerConfigured: true,
-  });
-});
-
-// Send Test FCM Push Notification to Owner's Registered Devices
-app.post('/api/notifications/test-push', async (req, res) => {
-  const { userId, email } = req.body;
-  if (!userId && !email) {
-    return res.status(400).json({ error: 'userId or email is required.' });
-  }
-
-  const db = readDb();
-  const user = db.users.find(
-    (u: any) => (userId && u.id === userId) || (email && u.email && u.email.toLowerCase() === email.toLowerCase())
-  );
-  if (!user) {
-    return res.status(404).json({ error: 'User not found in database.' });
-  }
-
-  const tokens: string[] = user.fcmTokens || [];
-  if (tokens.length === 0) {
-    return res.status(400).json({
-      error: 'No active push notification tokens found for your account. Please click "Enable Notifications" first.',
-    });
-  }
-
-  const testTitle = 'New TurfBook Booking Request (Test)';
-  const testBody = 'Test notification from TurfBook Firebase Cloud Messaging! Push notifications are working perfectly.';
-
-  const result = await sendFcmPushToTokens(tokens, {
-    title: testTitle,
-    body: testBody,
-    url: '/?dashboard=owner&tab=bookings',
-    data: {
-      type: 'test_notification',
-      timestamp: new Date().toISOString(),
-    },
-  });
-
-  // Clean up any stale tokens
-  if (result.staleTokensRemoved && result.staleTokensRemoved.length > 0) {
-    user.fcmTokens = user.fcmTokens.filter(
-      (tok: string) => !result.staleTokensRemoved!.includes(tok)
-    );
-    writeDb(db);
-  }
-
-  if (!result.success) {
-    return res.status(500).json({
-      success: false,
-      error: result.error || 'Failed to send test push notification.',
-      failureCount: result.failureCount,
-    });
-  }
-
-  res.json({
-    success: true,
-    message: `Test push notification sent successfully to ${result.sentCount} device(s)!`,
-    sentCount: result.sentCount,
-  });
 });
 
 // Admin Panel APIs

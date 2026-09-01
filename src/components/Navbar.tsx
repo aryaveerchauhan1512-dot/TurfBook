@@ -82,15 +82,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 shadow-xs transition-colors duration-200">
       {/* Top Bar: Logo, Location, Search, Auth */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
         {/* Brand Logo & Location */}
-        <div className="flex items-center gap-3 sm:gap-6 md:gap-8 shrink-0">
+        <div className="flex items-center gap-6 md:gap-8">
           <button
             onClick={() => {
               onSelectSport('All');
               onSearchChange('');
             }}
-            className="text-left cursor-pointer"
+            className="text-left"
           >
             <TurfBookLogo size="md" />
           </button>
@@ -123,13 +123,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Right Action Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-4 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
           {/* Dark / Light Mode Toggle */}
           <button
             onClick={toggleTheme}
             aria-label="Toggle Dark Mode"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            className="p-1.5 sm:p-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-amber-400 hover:text-[#2E7D32] dark:hover:text-amber-300 transition-all cursor-pointer shadow-xs shrink-0"
+            className="p-2 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-amber-400 hover:text-[#2E7D32] dark:hover:text-amber-300 transition-all cursor-pointer shadow-xs"
           >
             {theme === 'dark' ? (
               <Sun className="w-4 h-4 text-amber-400" />
@@ -141,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Filters Toggle */}
           <button
             onClick={onOpenFilters}
-            className="p-1.5 sm:p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-300 hover:text-[#2E7D32] dark:hover:text-emerald-400 hover:border-[#2E7D32]/30 transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0 cursor-pointer"
+            className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-300 hover:text-[#2E7D32] dark:hover:text-emerald-400 hover:border-[#2E7D32]/30 transition-colors flex items-center gap-1.5 text-xs font-semibold"
           >
             <SlidersHorizontal className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400" />
             <span className="hidden lg:inline">Filters</span>
@@ -149,13 +149,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Notifications Bell */}
           {user && (
-            <div className="relative shrink-0">
+            <div className="relative">
               <button
                 onClick={() => {
                   setShowNotifMenu(!showNotifMenu);
                   if (unreadCount > 0) onMarkNotificationsRead();
                 }}
-                className="p-1.5 sm:p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-300 hover:text-[#2E7D32] dark:hover:text-emerald-400 transition-colors relative cursor-pointer"
+                className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-300 hover:text-[#2E7D32] dark:hover:text-emerald-400 transition-colors relative"
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
@@ -200,10 +200,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* User Profile or Auth */}
           {user ? (
-            <div className="relative shrink-0">
+            <div className="relative">
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl bg-green-50 dark:bg-emerald-950/50 border border-green-200 dark:border-emerald-800/80 text-[#2E7D32] dark:text-emerald-300 hover:bg-green-100 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
+                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl bg-green-50 dark:bg-emerald-950/50 border border-green-200 dark:border-emerald-800/80 text-[#2E7D32] dark:text-emerald-300 hover:bg-green-100 dark:hover:bg-emerald-900/60 transition-colors"
               >
                 <div className="w-7 h-7 rounded-lg bg-[#2E7D32] text-white flex items-center justify-center text-xs font-black shadow-xs">
                   {user.name.charAt(0).toUpperCase()}
@@ -226,7 +226,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       onOpenDashboard();
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-green-50 dark:hover:bg-emerald-950/50 hover:text-[#2E7D32] dark:hover:text-emerald-300 transition-colors flex items-center gap-2 cursor-pointer"
+                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-green-50 dark:hover:bg-emerald-950/50 hover:text-[#2E7D32] dark:hover:text-emerald-300 transition-colors flex items-center gap-2"
                   >
                     <Calendar className="w-4 h-4" />
                     <span>{user.role === 'owner' ? 'Owner Dashboard' : user.role === 'admin' ? 'Admin Panel' : 'My Bookings'}</span>
@@ -236,7 +236,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       onLogout();
                       setShowProfileMenu(false);
                     }}
-                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-2 border-t border-gray-100 dark:border-slate-700 mt-1 cursor-pointer"
+                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-2 border-t border-gray-100 dark:border-slate-700 mt-1"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Sign Out</span>
@@ -245,17 +245,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => onOpenAuth('user')}
-                className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-[#2E7D32] dark:text-emerald-400 bg-green-50 dark:bg-emerald-950/50 hover:bg-green-100 dark:hover:bg-emerald-900/60 border border-green-200 dark:border-emerald-800/80 transition-colors whitespace-nowrap cursor-pointer shrink-0"
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs font-bold text-[#2E7D32] dark:text-emerald-400 bg-green-50 dark:bg-emerald-950/50 hover:bg-green-100 dark:hover:bg-emerald-900/60 border border-green-200 dark:border-emerald-800/80 transition-colors whitespace-nowrap"
               >
                 <span className="sm:hidden">Login</span>
                 <span className="hidden sm:inline">Player Login</span>
               </button>
               <button
                 onClick={() => onOpenAuth('owner')}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold text-white bg-[#2E7D32] hover:bg-[#43A047] shadow-md shadow-green-900/15 transition-all hidden sm:inline-block cursor-pointer shrink-0"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#2E7D32] hover:bg-[#43A047] shadow-md shadow-green-900/15 transition-all hidden sm:inline-block"
               >
                 Owner Portal
               </button>
