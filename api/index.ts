@@ -50,8 +50,15 @@ export default function handler(req: any, res: any) {
   req.url = fullUrl;
   req.originalUrl = fullUrl;
 
-  // Mark body as parsed if already provided by Vercel serverless environment
-  if (req.body !== undefined && typeof req.body === 'object' && req.body !== null) {
+  // Ensure body is parsed if provided as string or buffer
+  if (typeof req.body === 'string' && req.body) {
+    try {
+      req.body = JSON.parse(req.body);
+      req._body = true;
+    } catch (e) {
+      // not json string
+    }
+  } else if (req.body !== undefined && typeof req.body === 'object' && req.body !== null) {
     req._body = true;
   }
 

@@ -1288,7 +1288,14 @@ async function startServer() {
   });
 }
 
-if (!process.env.VERCEL) {
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.NOW_REGION
+);
+
+if (!isServerless) {
   startServer();
 }
 
