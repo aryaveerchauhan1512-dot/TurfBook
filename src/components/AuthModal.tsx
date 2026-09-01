@@ -122,15 +122,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     let data: any = {};
+    let rawText = '';
     try {
-      const text = await res.text();
-      data = text ? JSON.parse(text) : {};
+      rawText = await res.text();
+      data = rawText ? JSON.parse(rawText) : {};
     } catch {
       data = {};
     }
 
     if (!res.ok) {
-      throw new Error(data.error || (res.status === 404 ? 'Service endpoint not found.' : 'Operation failed. Please try again.'));
+      const msg = data.error || data.message || (res.status === 404 ? 'Service endpoint (/api) was not found on this server.' : `Server error (${res.status}): ${rawText.slice(0, 100) || 'Operation failed'}`);
+      throw new Error(msg);
     }
     return data;
   };
