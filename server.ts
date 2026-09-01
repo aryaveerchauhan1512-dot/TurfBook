@@ -21,7 +21,14 @@ app.use((req, res, next) => {
 
 // Avoid body-parser hanging when req.body was pre-parsed by Vercel serverless functions
 app.use((req, res, next) => {
-  if (req.body !== undefined && typeof req.body === 'object' && req.body !== null) {
+  if (typeof req.body === 'string' && req.body.trim()) {
+    try {
+      req.body = JSON.parse(req.body);
+      (req as any)._body = true;
+    } catch (e) {
+      // not a json string
+    }
+  } else if (req.body !== undefined && typeof req.body === 'object' && req.body !== null) {
     (req as any)._body = true;
   }
   next();
@@ -31,9 +38,20 @@ app.use(express.json({ limit: '25mb' }));
 
 // URL normalization for Vercel serverless functions
 app.use((req, res, next) => {
-  const orig = req.originalUrl || req.url || '';
-  if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user') || orig.startsWith('/owner') || orig.startsWith('/reviews') || orig.startsWith('/notifications')) {
-    req.url = '/api' + orig;
+  const queryPath = (req.query as any)?.path;
+  if (queryPath) {
+    const raw = Array.isArray(queryPath) ? queryPath.join('/') : String(queryPath);
+    req.url = `/api/${raw.replace(/^\/+/, '')}`;
+  } else {
+    const forwarded = (req.headers['x-forwarded-uri'] || req.headers['x-original-url'] || '') as string;
+    if (forwarded && forwarded.startsWith('/api')) {
+      req.url = forwarded;
+    } else {
+      const orig = req.url || '';
+      if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user') || orig.startsWith('/owner') || orig.startsWith('/reviews') || orig.startsWith('/notifications')) {
+        req.url = '/api' + orig;
+      }
+    }
   }
   next();
 });
