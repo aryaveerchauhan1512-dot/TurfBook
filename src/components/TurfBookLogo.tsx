@@ -96,7 +96,7 @@ export const TurfBookLogo: React.FC<LogoProps> = ({
             <span className="text-[#262626] dark:text-white">BOOK</span>
           </span>
           <span className={`${dimensions.subTextClass} text-[#238636] font-extrabold uppercase mt-0.5 whitespace-nowrap`}>
-            SPORTS TURF BOOKING
+            Book Some Turfs!
           </span>
         </div>
       )}
