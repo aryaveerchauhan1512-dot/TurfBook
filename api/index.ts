@@ -32,7 +32,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Robust URL normalization for Vercel rewrites & serverless invocations
 app.use((req, res, next) => {

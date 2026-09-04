@@ -26,10 +26,520 @@
       "role": "user",
       "phone": "3b48c35c93b3c02305eddd90fca2e7af:bf0dc54152d3264afe39f15dc8efc14a",
       "createdAt": "2026-08-17T09:50:41.493Z"
+    },
+    {
+      "id": "owner-1788505244437",
+      "name": "Archh",
+      "email": "aryaveersingh1512@gmail.com",
+      "passwordHash": "1e5382fc5c7de165c89a3d8f91a24132f68bb028b272c67f9c63ec9feb8a5f8019b223d5c3b0c0e2ee16283367d05586bab868e08a8fbba358f5859b773b4998",
+      "role": "owner",
+      "phone": "3de60348ef5e9c4417503e98387ce39a:aeb5460577b68248ecd58234a7327f62",
+      "createdAt": "2026-09-04T07:00:44.438Z",
+      "businessName": "Apex Sports",
+      "paymentQrUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%0A%20%20%20%20%3Crect%20width%3D%22200%22%20height%3D%22200%22%20fill%3D%22%23ffffff%22%20stroke%3D%22%232E7D32%22%20stroke-width%3D%224%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%2220%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2230%22%20y%3D%2230%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22130%22%20y%3D%2220%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22140%22%20y%3D%2230%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%22130%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2230%22%20y%3D%22140%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2280%22%20y%3D%2280%22%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2290%22%20y%3D%2220%22%20width%3D%2220%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%2290%22%20width%3D%2220%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22130%22%20y%3D%2290%22%20width%3D%2230%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2290%22%20y%3D%22140%22%20width%3D%2240%22%20height%3D%2230%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22150%22%20y%3D%22140%22%20width%3D%2230%22%20height%3D%2240%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%22100%22%20y%3D%22190%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20font-weight%3D%22bold%22%20fill%3D%22%232E7D32%22%20text-anchor%3D%22middle%22%3EUPI%3A%20apexsports%40upi%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
+      "isVerified": false
     }
   ],
-  "turfs": [],
-  "slots": [],
+  "turfs": [
+    {
+      "id": "turf-1788505266710",
+      "ownerId": "owner-1788505244437",
+      "ownerName": "Archh",
+      "ownerPhone": "3de60348ef5e9c4417503e98387ce39a:aeb5460577b68248ecd58234a7327f62",
+      "ownerPaymentQrUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%0A%20%20%20%20%3Crect%20width%3D%22200%22%20height%3D%22200%22%20fill%3D%22%23ffffff%22%20stroke%3D%22%232E7D32%22%20stroke-width%3D%224%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%2220%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2230%22%20y%3D%2230%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22130%22%20y%3D%2220%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22140%22%20y%3D%2230%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%22130%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2230%22%20y%3D%22140%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2280%22%20y%3D%2280%22%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2290%22%20y%3D%2220%22%20width%3D%2220%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%2290%22%20width%3D%2220%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22130%22%20y%3D%2290%22%20width%3D%2230%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2290%22%20y%3D%22140%22%20width%3D%2240%22%20height%3D%2230%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22150%22%20y%3D%22140%22%20width%3D%2230%22%20height%3D%2240%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%22100%22%20y%3D%22190%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20font-weight%3D%22bold%22%20fill%3D%22%232E7D32%22%20text-anchor%3D%22middle%22%3EUPI%3A%20apexsports%40upi%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
+      "name": "Aloo Turf",
+      "tagline": "Aloo Turf in Mumbai",
+      "description": "Modern state-of-the-art sports turf with professional amenities.",
+      "address": "Yaya West",
+      "city": "Mumbai",
+      "distanceKm": 1.6,
+      "sports": [
+        "Football",
+        "Futsal"
+      ],
+      "isIndoor": false,
+      "rating": 5,
+      "reviewCount": 0,
+      "pricePerHour": 1500,
+      "images": [
+        "https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=1200&q=80"
+      ],
+      "facilities": [
+        "Floodlights",
+        "Parking",
+        "Washrooms"
+      ],
+      "isUnposted": false,
+      "createdAt": "2026-09-04T07:01:06.710Z"
+    },
+    {
+      "id": "turf-1788507444602",
+      "ownerId": "test_owner",
+      "ownerName": "Test Owner",
+      "ownerPhone": "39d7d1176e0b1be1252ab2e5a1a60429:9daa4294bcf6ff1bee9631fc78b936a0",
+      "ownerPaymentQrUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%0A%20%20%20%20%3Crect%20width%3D%22200%22%20height%3D%22200%22%20fill%3D%22%23ffffff%22%20stroke%3D%22%232E7D32%22%20stroke-width%3D%224%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%2220%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2230%22%20y%3D%2230%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22130%22%20y%3D%2220%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22140%22%20y%3D%2230%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%22130%22%20width%3D%2250%22%20height%3D%2250%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2230%22%20y%3D%22140%22%20width%3D%2230%22%20height%3D%2230%22%20fill%3D%22%23ffffff%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2280%22%20y%3D%2280%22%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2290%22%20y%3D%2220%22%20width%3D%2220%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2220%22%20y%3D%2290%22%20width%3D%2220%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22130%22%20y%3D%2290%22%20width%3D%2230%22%20height%3D%2220%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%2290%22%20y%3D%22140%22%20width%3D%2240%22%20height%3D%2230%22%20fill%3D%22%231F2937%22%2F%3E%0A%20%20%20%20%3Crect%20x%3D%22150%22%20y%3D%22140%22%20width%3D%2230%22%20height%3D%2240%22%20fill%3D%22%232E7D32%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%22100%22%20y%3D%22190%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20font-weight%3D%22bold%22%20fill%3D%22%232E7D32%22%20text-anchor%3D%22middle%22%3EUPI%3A%20testarena%40upi%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
+      "name": "Test Arena",
+      "tagline": "Test Arena in Mumbai",
+      "description": "Modern state-of-the-art sports turf with professional amenities.",
+      "address": "Sector 15",
+      "city": "Mumbai",
+      "distanceKm": 2.7,
+      "sports": [
+        "Football",
+        "Cricket"
+      ],
+      "isIndoor": false,
+      "rating": 5,
+      "reviewCount": 0,
+      "pricePerHour": 1200,
+      "images": [
+        "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=",
+        "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=",
+        "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
+      ],
+      "facilities": [
+        "Parking"
+      ],
+      "isUnposted": true,
+      "createdAt": "2026-09-04T07:37:24.603Z"
+    }
+  ],
+  "slots": [
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-0",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "06:00 - 07:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-1",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "07:00 - 08:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-2",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "08:00 - 09:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-3",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "09:00 - 10:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-4",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "16:00 - 17:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-5",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "17:00 - 18:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-6",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "18:00 - 19:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-7",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "19:00 - 20:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-04-8",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-04",
+      "time": "20:00 - 21:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-0",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "06:00 - 07:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-1",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "07:00 - 08:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-2",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "08:00 - 09:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-3",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "09:00 - 10:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-4",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "16:00 - 17:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-5",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "17:00 - 18:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-6",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "18:00 - 19:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-7",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "19:00 - 20:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-05-8",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-05",
+      "time": "20:00 - 21:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-0",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "06:00 - 07:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-1",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "07:00 - 08:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-2",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "08:00 - 09:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-3",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "09:00 - 10:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-4",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "16:00 - 17:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-5",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "17:00 - 18:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-6",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "18:00 - 19:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-7",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "19:00 - 20:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788505266710-2026-09-06-8",
+      "turfId": "turf-1788505266710",
+      "date": "2026-09-06",
+      "time": "20:00 - 21:00",
+      "price": 1500,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-0",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "06:00 - 07:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-1",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "07:00 - 08:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-2",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "08:00 - 09:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-3",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "09:00 - 10:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-4",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "16:00 - 17:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-5",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "17:00 - 18:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-6",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "18:00 - 19:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-7",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "19:00 - 20:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-04-8",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-04",
+      "time": "20:00 - 21:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-0",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "06:00 - 07:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-1",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "07:00 - 08:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-2",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "08:00 - 09:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-3",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "09:00 - 10:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-4",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "16:00 - 17:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-5",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "17:00 - 18:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-6",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "18:00 - 19:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-7",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "19:00 - 20:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-05-8",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-05",
+      "time": "20:00 - 21:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-0",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "06:00 - 07:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-1",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "07:00 - 08:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-2",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "08:00 - 09:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-3",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "09:00 - 10:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-4",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "16:00 - 17:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-5",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "17:00 - 18:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-6",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "18:00 - 19:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-7",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "19:00 - 20:00",
+      "price": 1200,
+      "status": "available"
+    },
+    {
+      "id": "slot-turf-1788507444602-2026-09-06-8",
+      "turfId": "turf-1788507444602",
+      "date": "2026-09-06",
+      "time": "20:00 - 21:00",
+      "price": 1200,
+      "status": "available"
+    }
+  ],
   "bookings": [],
   "reviews": [],
   "notifications": []

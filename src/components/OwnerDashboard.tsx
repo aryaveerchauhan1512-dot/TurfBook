@@ -89,6 +89,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [imageError, setImageError] = useState<string | null>(null);
   const [savingTurf, setSavingTurf] = useState(false);
+  const [compressingImages, setCompressingImages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // QR Code and Phone state
@@ -198,8 +199,89 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     setShowTurfModal(true);
   };
 
-  // Process native image files or drop
-  const handleProcessFiles = (files: FileList | File[]) => {
+  // Canvas-based image compression: scales images down to max 1280px dimension and converts to JPEG at quality 0.8
+  // This prevents HTTP 413 Payload Too Large by reducing 5MB-10MB camera files to ~80KB-180KB while keeping crisp visual detail.
+  const compressImageFile = (file: File, maxWidth = 1280, maxHeight = 960, quality = 0.8): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressed = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressed);
+        };
+        img.onerror = () => {
+          resolve(e.target?.result as string);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        resolve('');
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Compresses any large existing data URL if it exceeds 350KB
+  const compressDataUrlIfNeeded = (dataUrl: string, maxWidth = 1280, maxHeight = 960, quality = 0.8): Promise<string> => {
+    if (!dataUrl || !dataUrl.startsWith('data:image')) {
+      return Promise.resolve(dataUrl);
+    }
+    if (dataUrl.length < 350000) {
+      return Promise.resolve(dataUrl);
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
+  // Process native image files or drop with automatic compression
+  const handleProcessFiles = async (files: FileList | File[]) => {
     const fileList = Array.from(files).filter((f) => f.type.startsWith('image/'));
     if (fileList.length === 0) return;
 
@@ -210,27 +292,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     }
 
     const filesToRead = fileList.slice(0, availableSlots);
-    let loadedCount = 0;
-    const newImages: string[] = [];
+    setCompressingImages(true);
+    setImageError(null);
 
-    filesToRead.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          newImages.push(result);
-        }
-        loadedCount++;
-        if (loadedCount === filesToRead.length) {
-          setUploadedImages((prev) => [...prev, ...newImages]);
-          setImageError(null);
-        }
-      };
-      reader.onerror = () => {
-        loadedCount++;
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const compressedList = await Promise.all(
+        filesToRead.map((file) => compressImageFile(file))
+      );
+      const validImages = compressedList.filter(Boolean);
+      setUploadedImages((prev) => [...prev, ...validImages]);
+      setImageError(null);
+    } catch (err) {
+      console.error('Error processing image files:', err);
+      setImageError('Failed to process some photos. Please try again.');
+    } finally {
+      setCompressingImages(false);
+    }
   };
 
   // Add image URL
@@ -304,6 +381,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     setImageError(null);
 
     try {
+      // Ensure all images are compressed before sending over the wire
+      const optimizedImages = await Promise.all(
+        uploadedImages.map((img) => compressDataUrlIfNeeded(img))
+      );
+
       const payload = {
         ownerId: user.id,
         ownerName: user.name,
@@ -315,7 +397,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
         sports: selectedSports,
         isIndoor: Boolean(isIndoor),
         pricePerHour: Number(pricePerHour),
-        images: uploadedImages,
+        images: optimizedImages,
         facilities: selectedFacilities,
       };
 
@@ -330,10 +412,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
       try {
         data = text ? JSON.parse(text) : {};
       } catch {
+        if (res.status === 413) {
+          throw new Error('The uploaded photos exceed server payload limits (413). Please delete a few photos or upload smaller ones.');
+        }
         throw new Error(res.ok ? 'Server returned an invalid response format.' : `Failed to save turf (${res.status}). Please check network or try again.`);
       }
 
       if (!res.ok) {
+        if (res.status === 413) {
+          throw new Error('The uploaded photos exceed server payload limits (413). Please delete a few photos or upload smaller ones.');
+        }
         throw new Error(data.error || 'Failed to save turf.');
       }
 
@@ -957,23 +1045,38 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                 <div
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleImageFileDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-4 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 text-center cursor-pointer hover:bg-emerald-100/50 transition-colors"
+                  onClick={() => !compressingImages && fileInputRef.current?.click()}
+                  className={`p-4 border-2 border-dashed rounded-xl text-center transition-colors ${
+                    compressingImages
+                      ? 'border-emerald-400 bg-emerald-100/50 cursor-wait'
+                      : 'border-emerald-300 bg-emerald-50/50 cursor-pointer hover:bg-emerald-100/50'
+                  }`}
                 >
                   <input
                     type="file"
                     ref={fileInputRef}
                     accept="image/*"
                     multiple
+                    disabled={compressingImages}
                     onChange={(e) => {
                       if (e.target.files) handleProcessFiles(e.target.files);
                       e.target.value = '';
                     }}
                     className="hidden"
                   />
-                  <Upload className="w-6 h-6 text-[#2E7D32] mx-auto mb-1" />
-                  <p className="text-xs font-bold text-slate-700">Click to Upload or Drag & Drop Turf Photos Here</p>
-                  <p className="text-[10px] text-slate-400">JPG, PNG, WebP (Max 15) or enter image link below</p>
+                  {compressingImages ? (
+                    <div className="flex flex-col items-center justify-center py-2">
+                      <RefreshCw className="w-6 h-6 text-[#2E7D32] animate-spin mb-1" />
+                      <p className="text-xs font-bold text-slate-700">Optimizing photos for instant upload...</p>
+                      <p className="text-[10px] text-slate-400">Resizing and compressing to keep listing fast & lightweight</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-[#2E7D32] mx-auto mb-1" />
+                      <p className="text-xs font-bold text-slate-700">Click to Upload or Drag & Drop Turf Photos Here</p>
+                      <p className="text-[10px] text-slate-400">JPG, PNG, WebP (Max 15) • Automatically compressed for fast loading</p>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
@@ -1026,10 +1129,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                 </button>
                 <button
                   type="submit"
-                  disabled={savingTurf}
-                  className="px-6 py-2.5 text-xs font-bold text-white bg-[#2E7D32] rounded-xl shadow-md"
+                  disabled={savingTurf || compressingImages}
+                  className="px-6 py-2.5 text-xs font-bold text-white bg-[#2E7D32] rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {savingTurf ? 'Publishing...' : 'Publish Turf Listing'}
+                  {savingTurf ? 'Publishing...' : compressingImages ? 'Optimizing Photos...' : 'Publish Turf Listing'}
                 </button>
               </div>
             </form>
