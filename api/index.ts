@@ -2,7 +2,23 @@ import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
-import { smartMatchDistrict, smartMatchTurf } from '../src/data/indianDistricts';
+
+// Self-contained matching helpers for Vercel Serverless (no cross-boundary src/ imports)
+function smartMatchDistrict(cityA?: string, cityB?: string): boolean {
+  if (!cityA || !cityB) return false;
+  const a = cityA.toLowerCase().trim();
+  const b = cityB.toLowerCase().trim();
+  return a.includes(b) || b.includes(a);
+}
+
+function smartMatchTurf(turf: any, query: string): boolean {
+  if (!query || !query.trim()) return true;
+  const q = query.toLowerCase().trim();
+  const text = `${turf.name || ''} ${turf.address || ''} ${turf.city || ''} ${(turf.sports || []).join(' ')}`.toLowerCase();
+  if (text.includes(q)) return true;
+  const tokens = q.split(/[\s,+/]+/).filter(Boolean);
+  return tokens.some(t => text.includes(t) || smartMatchDistrict(turf.city, t));
+}
 
 const app = express();
 
@@ -17,6 +33,29 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: '25mb' }));
+
+// Robust URL normalization for Vercel rewrites & serverless invocations
+app.use((req, res, next) => {
+  const matchedPath = (req.headers['x-matched-path'] as string) || '';
+  const invokePath = (req.headers['x-invoke-path'] as string) || '';
+
+  // If Vercel rewrote the URL to /api/index or /api, recover original path
+  if (req.url === '/api/index' || req.url === '/api' || req.url === '/index' || req.url === '/') {
+    if (matchedPath && matchedPath !== '/api/index' && matchedPath !== '/api') {
+      req.url = matchedPath;
+    } else if (invokePath && invokePath !== '/api/index' && invokePath !== '/api') {
+      req.url = invokePath;
+    } else if (req.originalUrl && req.originalUrl.startsWith('/api/') && req.originalUrl !== '/api/index') {
+      req.url = req.originalUrl;
+    }
+  }
+
+  const orig = req.originalUrl || req.url || '';
+  if (orig.startsWith('/auth/') || orig.startsWith('/turfs') || orig.startsWith('/admin') || orig.startsWith('/bookings') || orig.startsWith('/user')) {
+    req.url = '/api' + orig;
+  }
+  next();
+});
 
 // OTP In-Memory Store
 const otpStore = new Map<string, { otp: string; expiresAt: number; verified?: boolean }>();
@@ -1140,11 +1179,5 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-export default function handler(req: any, res: any) {
-  // Normalize incoming URLs from Vercel routing
-  const orig = req.url || '';
-  if (!orig.startsWith('/api/') && !orig.startsWith('/api')) {
-    req.url = '/api' + (orig.startsWith('/') ? orig : '/' + orig);
-  }
-  return app(req, res);
-}
+export default app;
+export { app };
