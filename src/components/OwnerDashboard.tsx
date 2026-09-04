@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   Edit2,
@@ -89,6 +89,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [imageError, setImageError] = useState<string | null>(null);
   const [savingTurf, setSavingTurf] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // QR Code and Phone state
   const [ownerPhone, setOwnerPhone] = useState(user.phone || '');
@@ -108,8 +109,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
         fetch('/api/turfs'),
         fetch(`/api/bookings/owner/${encodeURIComponent(user.id)}`),
       ]);
-      const turfsData = turfsRes.ok ? await turfsRes.json() : [];
-      const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
+      let turfsData: any[] = [];
+      let bookingsData: any[] = [];
+      try {
+        const text = await turfsRes.text();
+        turfsData = text ? JSON.parse(text) : [];
+      } catch {
+        turfsData = [];
+      }
+      try {
+        const text = await bookingsRes.text();
+        bookingsData = text ? JSON.parse(text) : [];
+      } catch {
+        bookingsData = [];
+      }
 
       const myTurfs = Array.isArray(turfsData) ? turfsData.filter((t: Turf) => t.ownerId === user.id) : [];
       setTurfs(myTurfs);
@@ -136,8 +149,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
       const res = await fetch(
         `/api/turfs/${selectedTurfForSlots.id}/slots?date=${calendarDate}`
       );
-      const data = await res.json();
-      setCalendarSlots(data);
+      if (!res.ok) return;
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : [];
+      setCalendarSlots(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching slots:', err);
     }
@@ -183,14 +198,50 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     setShowTurfModal(true);
   };
 
+  // Process native image files or drop
+  const handleProcessFiles = (files: FileList | File[]) => {
+    const fileList = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (fileList.length === 0) return;
+
+    const availableSlots = 15 - uploadedImages.length;
+    if (availableSlots <= 0) {
+      setImageError('Maximum 15 photos allowed per turf.');
+      return;
+    }
+
+    const filesToRead = fileList.slice(0, availableSlots);
+    let loadedCount = 0;
+    const newImages: string[] = [];
+
+    filesToRead.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          newImages.push(result);
+        }
+        loadedCount++;
+        if (loadedCount === filesToRead.length) {
+          setUploadedImages((prev) => [...prev, ...newImages]);
+          setImageError(null);
+        }
+      };
+      reader.onerror = () => {
+        loadedCount++;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Add image URL
   const handleAddImageUrl = () => {
-    if (!imageUrlInput) return;
+    const trimmed = imageUrlInput.trim();
+    if (!trimmed) return;
     if (uploadedImages.length >= 15) {
       setImageError('Maximum 15 photos allowed per turf.');
       return;
     }
-    setUploadedImages([...uploadedImages, imageUrlInput]);
+    setUploadedImages([...uploadedImages, trimmed]);
     setImageUrlInput('');
     setImageError(null);
   };
@@ -204,26 +255,48 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     }
   };
 
-  // Drag & drop image simulation handler
+  // Drag & drop image handler (supports both real files and fallback simulation)
   const handleImageFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (uploadedImages.length >= 15) return;
-    // Add high quality fallback sports image
-    const sampleImages = [
-      'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=80',
-    ];
-    const newImg = sampleImages[uploadedImages.length % sampleImages.length];
-    setUploadedImages([...uploadedImages, newImg]);
-    setImageError(null);
+    if (uploadedImages.length >= 15) {
+      setImageError('Maximum 15 photos allowed per turf.');
+      return;
+    }
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleProcessFiles(e.dataTransfer.files);
+    } else {
+      const sampleImages = [
+        'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=1200&q=80',
+      ];
+      const newImg = sampleImages[uploadedImages.length % sampleImages.length];
+      setUploadedImages([...uploadedImages, newImg]);
+      setImageError(null);
+    }
   };
 
-  // Save Turf (Enforces min 3, max 15 images)
+  // Save Turf (Enforces min 3, max 15 images with defensive response handling)
   const handleSaveTurf = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || !user.id) {
+      setImageError('Please sign in as a Turf Owner to publish listings.');
+      return;
+    }
+    if (!turfName.trim() || !address.trim() || !city.trim() || !pricePerHour) {
+      setImageError('Please fill in all required fields (Turf Name, City, Venue Address, and Hourly Price).');
+      return;
+    }
+    if (selectedSports.length === 0) {
+      setImageError('Please select at least one supported sport.');
+      return;
+    }
     if (uploadedImages.length < 3) {
       setImageError('Mandatory Requirement: You must upload at least 3 photos before publishing.');
+      return;
+    }
+    if (uploadedImages.length > 15) {
+      setImageError('Maximum 15 photos allowed per turf.');
       return;
     }
 
@@ -234,13 +307,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
       const payload = {
         ownerId: user.id,
         ownerName: user.name,
-        name: turfName,
-        tagline,
-        description,
-        address,
-        city,
+        name: turfName.trim(),
+        tagline: tagline.trim() || `${turfName.trim()} in ${city.trim()}`,
+        description: description.trim() || 'Modern state-of-the-art sports turf with professional amenities.',
+        address: address.trim(),
+        city: city.trim(),
         sports: selectedSports,
-        isIndoor,
+        isIndoor: Boolean(isIndoor),
         pricePerHour: Number(pricePerHour),
         images: uploadedImages,
         facilities: selectedFacilities,
@@ -252,13 +325,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save turf.');
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error(res.ok ? 'Server returned an invalid response format.' : `Failed to save turf (${res.status}). Please check network or try again.`);
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save turf.');
+      }
 
       setShowTurfModal(false);
-      fetchOwnerData();
+      await fetchOwnerData();
     } catch (err: any) {
-      setImageError(err.message);
+      setImageError(err?.message || 'Failed to save turf listing.');
     } finally {
       setSavingTurf(false);
     }
@@ -875,11 +957,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                 <div
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleImageFileDrop}
+                  onClick={() => fileInputRef.current?.click()}
                   className="p-4 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50/50 text-center cursor-pointer hover:bg-emerald-100/50 transition-colors"
                 >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      if (e.target.files) handleProcessFiles(e.target.files);
+                      e.target.value = '';
+                    }}
+                    className="hidden"
+                  />
                   <Upload className="w-6 h-6 text-[#2E7D32] mx-auto mb-1" />
-                  <p className="text-xs font-bold text-slate-700">Drag & Drop Turf Photos Here</p>
-                  <p className="text-[10px] text-slate-400">or enter image link below</p>
+                  <p className="text-xs font-bold text-slate-700">Click to Upload or Drag & Drop Turf Photos Here</p>
+                  <p className="text-[10px] text-slate-400">JPG, PNG, WebP (Max 15) or enter image link below</p>
                 </div>
 
                 <div className="flex gap-2">
@@ -887,6 +981,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                     type="url"
                     value={imageUrlInput}
                     onChange={(e) => setImageUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddImageUrl();
+                      }
+                    }}
                     placeholder="Paste Image URL (Unsplash or direct image link)"
                     className="flex-1 p-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800"
                   />
