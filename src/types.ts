@@ -157,3 +157,35 @@ export interface FilterState {
   isIndoorFilter: 'all' | 'indoor' | 'outdoor';
   facilities: TurfFacility[];
 }
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  turfId: string;
+  turfName: string;
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  recipientId: string;
+  recipientName: string;
+  text: string;
+  createdAt: string;
+  read?: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  turfId: string;
+  turfName: string;
+  turfImage?: string;
+  playerId: string;
+  playerName: string;
+  playerEmail?: string;
+  ownerId: string;
+  ownerName: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCountPlayer: number;
+  unreadCountOwner: number;
+  updatedAt: string;
+}

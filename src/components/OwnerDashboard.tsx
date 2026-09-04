@@ -19,9 +19,14 @@ import {
   MessageSquare,
   Sparkles,
   RefreshCw,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MessageCircle,
+  Send,
+  Ban,
+  Check,
+  CheckCheck
 } from 'lucide-react';
-import { Turf, Booking, User, Slot, TurfFacility, SportType } from '../types';
+import { Turf, Booking, User, Slot, TurfFacility, SportType, Conversation, ChatMessage } from '../types';
 import { ALL_INDIAN_DISTRICTS_FORMATTED } from '../data/indianDistricts';
 
 interface OwnerDashboardProps {
@@ -56,7 +61,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
   const [turfs, setTurfs] = useState<Turf[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'turfs' | 'bookings' | 'calendar' | 'qr'>('turfs');
+  const [activeTab, setActiveTab] = useState<'turfs' | 'bookings' | 'calendar' | 'messages' | 'qr'>('turfs');
 
   // Selected turf for slot calendar management
   const [selectedTurfForSlots, setSelectedTurfForSlots] = useState<Turf | null>(null);
@@ -64,6 +69,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
   const [calendarDate, setCalendarDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
+
+  // Slot Management Modal state (Available / Booked / Blocked)
+  const [slotForManagement, setSlotForManagement] = useState<Slot | null>(null);
+  const [slotStatusChoice, setSlotStatusChoice] = useState<'available' | 'booked' | 'blocked'>('available');
+  const [slotBookedName, setSlotBookedName] = useState('');
+  const [slotBookedPhone, setSlotBookedPhone] = useState('');
+  const [savingSlotStatus, setSavingSlotStatus] = useState(false);
+  const [slotPendingNotice, setSlotPendingNotice] = useState<Slot | null>(null);
+
+  // Chat / Messages tab state
+  const [ownerConversations, setOwnerConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [sendingChat, setSendingChat] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   // Add / Edit Turf Modal
   const [showTurfModal, setShowTurfModal] = useState(false);
@@ -163,18 +186,163 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
     fetchCalendarSlots();
   }, [selectedTurfForSlots?.id, calendarDate]);
 
-  // Toggle Slot Status on Calendar (Block / Unblock)
-  const handleToggleSlotBlock = async (slot: Slot) => {
-    const nextStatus = slot.status === 'blocked' ? 'available' : 'blocked';
+  // Fetch Owner Conversations
+  const fetchOwnerConversations = async () => {
+    if (!user?.id) return;
     try {
-      await fetch(`/api/turfs/${slot.turfId}/slots/block`, {
+      const res = await fetch(`/api/chat/conversations?userId=${encodeURIComponent(user.id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setOwnerConversations(data);
+          const totalUnread = data.reduce(
+            (sum: number, c: Conversation) => sum + (c.unreadCountOwner || 0),
+            0
+          );
+          setUnreadChatCount(totalUnread);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching owner conversations:', err);
+    }
+  };
+
+  // Fetch messages for a specific conversation
+  const fetchConversationMessages = async (convId: string, silent = false) => {
+    if (!user?.id) return;
+    if (!silent) setLoadingMessages(true);
+    try {
+      const res = await fetch(
+        `/api/chat/messages/${encodeURIComponent(convId)}?userId=${encodeURIComponent(user.id)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setConversationMessages(data);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching conversation messages:', err);
+    } finally {
+      if (!silent) setLoadingMessages(false);
+    }
+  };
+
+  // Poll conversations & messages
+  useEffect(() => {
+    fetchOwnerConversations();
+    const interval = setInterval(() => {
+      fetchOwnerConversations();
+      if (selectedConversation) {
+        fetchConversationMessages(selectedConversation.id, true);
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [user?.id, selectedConversation?.id]);
+
+  // Send owner chat reply
+  const handleSendOwnerReply = async () => {
+    const text = chatInput.trim();
+    if (!text || !selectedConversation || !user || sendingChat) return;
+
+    setSendingChat(true);
+    setChatInput('');
+
+    const tempMsg: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      conversationId: selectedConversation.id,
+      turfId: selectedConversation.turfId,
+      turfName: selectedConversation.turfName,
+      senderId: user.id,
+      senderName: user.name,
+      senderRole: 'owner',
+      recipientId: selectedConversation.playerId,
+      recipientName: selectedConversation.playerName,
+      text,
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+
+    setConversationMessages((prev) => [...prev, tempMsg]);
+
+    try {
+      const res = await fetch('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotId: slot.id, status: nextStatus }),
+        body: JSON.stringify({
+          conversationId: selectedConversation.id,
+          turfId: selectedConversation.turfId,
+          turfName: selectedConversation.turfName,
+          turfImage: selectedConversation.turfImage,
+          senderId: user.id,
+          senderName: user.name,
+          senderRole: 'owner',
+          recipientId: selectedConversation.playerId,
+          recipientName: selectedConversation.playerName,
+          text,
+        }),
       });
-      fetchCalendarSlots();
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.message) {
+          setConversationMessages((prev) =>
+            prev.map((m) => (m.id === tempMsg.id ? data.message : m))
+          );
+        }
+        fetchOwnerConversations();
+      }
     } catch (err) {
-      console.error('Error toggling slot:', err);
+      console.error('Error sending owner reply:', err);
+    } finally {
+      setSendingChat(false);
+    }
+  };
+
+  // Open slot management modal
+  const handleOpenSlotManagement = (slot: Slot) => {
+    if (slot.status === 'pending') {
+      setSlotPendingNotice(slot);
+      return;
+    }
+    setSlotForManagement(slot);
+    setSlotStatusChoice(
+      slot.status === 'booked' ? 'booked' : slot.status === 'blocked' ? 'blocked' : 'available'
+    );
+    setSlotBookedName(slot.bookedByUserName || '');
+    setSlotBookedPhone(slot.bookedByUserPhone || '');
+  };
+
+  // Save slot status
+  const handleSaveSlotStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!slotForManagement) return;
+
+    setSavingSlotStatus(true);
+    try {
+      const res = await fetch(`/api/turfs/${slotForManagement.turfId}/slots/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slotId: slotForManagement.id,
+          status: slotStatusChoice,
+          bookedByUserName:
+            slotStatusChoice === 'booked'
+              ? slotBookedName.trim() || 'Offline / Walk-in Player'
+              : undefined,
+          bookedByUserPhone:
+            slotStatusChoice === 'booked' ? slotBookedPhone.trim() : undefined,
+        }),
+      });
+
+      if (res.ok) {
+        setSlotForManagement(null);
+        fetchCalendarSlots();
+      }
+    } catch (err) {
+      console.error('Error saving slot status:', err);
+    } finally {
+      setSavingSlotStatus(false);
     }
   };
 
@@ -618,7 +786,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                 : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
-            Interactive Calendar & Slot Blocker
+            Slot Calendar & Availability
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`pb-3 text-xs font-bold border-b-2 transition-all relative ${
+              activeTab === 'messages'
+                ? 'border-[#2E7D32] text-[#2E7D32]'
+                : 'border-transparent text-slate-400 hover:text-slate-700'
+            }`}
+          >
+            Player Messages
+            {unreadChatCount > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-[#2E7D32] text-white text-[9px] font-black">
+                {unreadChatCount}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('qr')}
@@ -803,7 +986,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
             </div>
           )}
 
-          {/* TAB 3: INTERACTIVE CALENDAR & SLOT BLOCKER */}
+          {/* TAB 3: INTERACTIVE CALENDAR & SLOT AVAILABILITY (BOOKED / BLOCKED / AVAILABLE) */}
           {activeTab === 'calendar' && (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
@@ -836,12 +1019,37 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                 </div>
               </div>
 
-              <div className="p-4 bg-white border border-slate-200 rounded-2xl">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
-                  Click any slot below to Block / Unblock slot
-                </h4>
+              {/* Status Legend */}
+              <div className="flex flex-wrap items-center gap-4 px-2 py-1 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-md bg-emerald-500"></span>
+                  <span className="font-semibold text-slate-600">Available (Online)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-md bg-rose-500"></span>
+                  <span className="font-semibold text-slate-600">Booked (Offline / Online)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-md bg-slate-800"></span>
+                  <span className="font-semibold text-slate-600">Blocked (Maintenance)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-md bg-amber-500"></span>
+                  <span className="font-semibold text-slate-600">Pending Request</span>
+                </div>
+              </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Click any slot to mark as Booked, Blocked, or Available
+                  </h4>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {calendarSlots.length} Total Slots
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                   {calendarSlots.map((slot) => {
                     const isBlocked = slot.status === 'blocked';
                     const isBooked = slot.status === 'booked';
@@ -850,30 +1058,244 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                     return (
                       <button
                         key={slot.id}
-                        onClick={() => handleToggleSlotBlock(slot)}
-                        disabled={isBooked || isPending}
-                        className={`p-3 rounded-2xl border text-center transition-all ${
+                        type="button"
+                        onClick={() => handleOpenSlotManagement(slot)}
+                        className={`p-3 rounded-2xl border text-center transition-all relative group flex flex-col justify-between min-h-[90px] ${
                           isBlocked
-                            ? 'bg-slate-800 text-white border-slate-900'
+                            ? 'bg-slate-800 text-white border-slate-900 hover:bg-slate-900 shadow-xs'
                             : isBooked
-                            ? 'bg-rose-100 text-rose-900 border-rose-300 cursor-not-allowed'
+                            ? 'bg-rose-50 text-rose-900 border-rose-200 hover:bg-rose-100/80 shadow-xs'
                             : isPending
-                            ? 'bg-amber-100 text-amber-900 border-amber-300 cursor-not-allowed'
-                            : 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100'
+                            ? 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100 shadow-xs'
+                            : 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100 shadow-xs'
                         }`}
                       >
-                        <span className="text-xs font-black block">{slot.time}</span>
-                        <span className="text-[10px] font-bold uppercase mt-1 block">
-                          {slot.status}
-                        </span>
-                        <span className="text-[9px] block mt-0.5 opacity-70">
-                          {isBlocked ? 'Click to Unblock' : isBooked ? 'Booked' : 'Click to Block'}
-                        </span>
+                        <div>
+                          <span className="text-xs font-black block tracking-tight">{slot.time}</span>
+                          <span
+                            className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md inline-block mt-1 ${
+                              isBlocked
+                                ? 'bg-slate-700 text-slate-200'
+                                : isBooked
+                                ? 'bg-rose-200/80 text-rose-800'
+                                : isPending
+                                ? 'bg-amber-200/80 text-amber-800'
+                                : 'bg-emerald-200/80 text-emerald-800'
+                            }`}
+                          >
+                            {slot.status}
+                          </span>
+                        </div>
+
+                        <div className="mt-1">
+                          {isBooked && slot.bookedByUserName && (
+                            <span className="text-[9px] font-bold block truncate opacity-80" title={slot.bookedByUserName}>
+                              👤 {slot.bookedByUserName}
+                            </span>
+                          )}
+                          {!isBooked && !isBlocked && !isPending && (
+                            <span className="text-[10px] font-black text-emerald-700 block">
+                              ₹{slot.price}
+                            </span>
+                          )}
+                          <span className="text-[8px] block opacity-60 group-hover:opacity-100 font-semibold underline mt-0.5">
+                            {isPending ? 'View Request' : 'Manage Slot'}
+                          </span>
+                        </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 4: PLAYER MESSAGES / CHAT */}
+          {activeTab === 'messages' && (
+            <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden h-[540px] flex flex-col md:flex-row">
+              {/* Left Column: Conversations */}
+              <div
+                className={`w-full md:w-80 border-r border-slate-200 bg-slate-50 flex flex-col shrink-0 ${
+                  selectedConversation ? 'hidden md:flex' : 'flex'
+                }`}
+              >
+                <div className="p-3 border-b border-slate-200 flex items-center justify-between">
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                    Inbox ({ownerConversations.length})
+                  </h4>
+                  <button
+                    onClick={fetchOwnerConversations}
+                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                  {ownerConversations.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 space-y-2">
+                      <MessageCircle className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
+                      <p className="text-xs font-bold text-slate-600">No messages yet</p>
+                      <p className="text-[11px] text-slate-400">
+                        When players enquire about your turfs, their messages will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    ownerConversations.map((c) => {
+                      const isSelected = selectedConversation?.id === c.id;
+                      const unread = c.unreadCountOwner || 0;
+
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedConversation(c);
+                            fetchConversationMessages(c.id);
+                          }}
+                          className={`w-full p-3 text-left flex items-start gap-3 transition-colors ${
+                            isSelected
+                              ? 'bg-emerald-50 border-l-4 border-[#2E7D32]'
+                              : 'hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-xl bg-slate-200 font-bold text-slate-600 flex items-center justify-center shrink-0 text-xs">
+                            {c.playerName?.charAt(0)?.toUpperCase() || 'P'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <h5 className="text-xs font-bold text-slate-900 truncate">
+                                {c.playerName}
+                              </h5>
+                              {c.lastMessageAt && (
+                                <span className="text-[9px] text-slate-400 shrink-0">
+                                  {new Date(c.lastMessageAt).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-emerald-700 font-bold truncate">
+                              {c.turfName}
+                            </p>
+                            <p className="text-[11px] text-slate-500 truncate font-medium">
+                              {c.lastMessage}
+                            </p>
+                          </div>
+                          {unread > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-[#2E7D32] text-white text-[9px] font-black shrink-0">
+                              {unread}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Chat Thread */}
+              {selectedConversation ? (
+                <div className="flex-1 flex flex-col min-w-0 bg-white">
+                  {/* Thread Header */}
+                  <div className="p-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <button
+                        onClick={() => setSelectedConversation(null)}
+                        className="md:hidden p-1 text-slate-500 rounded-lg"
+                      >
+                        ←
+                      </button>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 truncate">
+                          {selectedConversation.playerName}
+                        </h4>
+                        <p className="text-[10px] text-[#2E7D32] font-bold truncate">
+                          Enquiring about: {selectedConversation.turfName}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Messages Scroll Area */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30">
+                    {loadingMessages ? (
+                      <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                        <RefreshCw className="w-4 h-4 animate-spin text-[#2E7D32] mr-2" />
+                        Loading conversation...
+                      </div>
+                    ) : conversationMessages.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                        No messages in this chat.
+                      </div>
+                    ) : (
+                      conversationMessages.map((msg) => {
+                        const isOwner = msg.senderRole === 'owner';
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex flex-col ${isOwner ? 'items-end' : 'items-start'}`}
+                          >
+                            <span className="text-[9px] font-bold text-slate-400 mb-0.5 px-1">
+                              {isOwner ? 'You (Owner)' : msg.senderName} •{' '}
+                              {new Date(msg.createdAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            <div
+                              className={`max-w-[80%] p-3 rounded-2xl text-xs leading-relaxed ${
+                                isOwner
+                                  ? 'bg-[#2E7D32] text-white rounded-tr-xs'
+                                  : 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs shadow-2xs'
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Reply Input */}
+                  <div className="p-3 border-t border-slate-200 bg-white">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSendOwnerReply();
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder={`Reply to ${selectedConversation.playerName}...`}
+                        className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#2E7D32]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!chatInput.trim() || sendingChat}
+                        className="px-4 py-2.5 bg-[#2E7D32] hover:bg-[#256629] text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Send</span>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ) : (
+                <div className="hidden md:flex flex-1 items-center justify-center text-center p-8 text-slate-400">
+                  <div className="space-y-2">
+                    <MessageCircle className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
+                    <h5 className="text-xs font-bold text-slate-700">Select a Player Conversation</h5>
+                    <p className="text-[11px] text-slate-400 max-w-xs">
+                      Reply directly to players about slot availability, custom pricing, or facility queries.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1218,6 +1640,207 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                 className="py-2.5 bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md"
               >
                 Unbook Slot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MANAGE SLOT AVAILABILITY MODAL (BOOKED / BLOCKED / AVAILABLE) */}
+      {slotForManagement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Manage Slot Availability</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  {slotForManagement.time} • {calendarDate}
+                </p>
+              </div>
+              <button
+                onClick={() => setSlotForManagement(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSlotStatus} className="space-y-4">
+              {/* Option 1: Available */}
+              <label
+                onClick={() => setSlotStatusChoice('available')}
+                className={`p-3.5 rounded-2xl border-2 cursor-pointer flex items-start gap-3 transition-all ${
+                  slotStatusChoice === 'available'
+                    ? 'border-[#2E7D32] bg-emerald-50/70'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="mt-0.5">
+                  <input
+                    type="radio"
+                    name="slotStatusChoice"
+                    checked={slotStatusChoice === 'available'}
+                    onChange={() => setSlotStatusChoice('available')}
+                    className="accent-[#2E7D32] w-4 h-4"
+                  />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Mark as Available
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Open for online bookings by players on TurfBook (₹{slotForManagement.price}/hr).
+                  </p>
+                </div>
+              </label>
+
+              {/* Option 2: Booked */}
+              <label
+                onClick={() => setSlotStatusChoice('booked')}
+                className={`p-3.5 rounded-2xl border-2 cursor-pointer flex items-start gap-3 transition-all ${
+                  slotStatusChoice === 'booked'
+                    ? 'border-rose-500 bg-rose-50/70'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="mt-0.5">
+                  <input
+                    type="radio"
+                    name="slotStatusChoice"
+                    checked={slotStatusChoice === 'booked'}
+                    onChange={() => setSlotStatusChoice('booked')}
+                    className="accent-rose-600 w-4 h-4"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    Mark as Booked
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Already reserved via offline walk-in, phone call, tournament, or regular customer.
+                  </p>
+
+                  {/* Customer details input when Booked is selected */}
+                  {slotStatusChoice === 'booked' && (
+                    <div className="mt-3 space-y-2 pt-2 border-t border-rose-200/70">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-rose-900 mb-1">
+                          Player / Group Name (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={slotBookedName}
+                          onChange={(e) => setSlotBookedName(e.target.value)}
+                          placeholder="e.g. Rahul Team / Walk-in"
+                          className="w-full p-2 bg-white border border-rose-300 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-rose-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-rose-900 mb-1">
+                          Contact Phone Number (Optional)
+                        </label>
+                        <input
+                          type="tel"
+                          value={slotBookedPhone}
+                          onChange={(e) => setSlotBookedPhone(e.target.value)}
+                          placeholder="e.g. +91 98765 43210"
+                          className="w-full p-2 bg-white border border-rose-300 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-rose-600"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* Option 3: Blocked */}
+              <label
+                onClick={() => setSlotStatusChoice('blocked')}
+                className={`p-3.5 rounded-2xl border-2 cursor-pointer flex items-start gap-3 transition-all ${
+                  slotStatusChoice === 'blocked'
+                    ? 'border-slate-800 bg-slate-100'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="mt-0.5">
+                  <input
+                    type="radio"
+                    name="slotStatusChoice"
+                    checked={slotStatusChoice === 'blocked'}
+                    onChange={() => setSlotStatusChoice('blocked')}
+                    className="accent-slate-800 w-4 h-4"
+                  />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-800"></span>
+                    Mark as Blocked
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Unavailable due to pitch maintenance, turf repair, adverse weather, or private facility use.
+                  </p>
+                </div>
+              </label>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSlotForManagement(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSlotStatus}
+                  className="flex-1 py-2.5 bg-[#2E7D32] hover:bg-[#256629] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                >
+                  {savingSlotStatus ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    'Save Slot Status'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PENDING NOTICE MODAL */}
+      {slotPendingNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center animate-in zoom-in-95 duration-150">
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2 font-black text-lg">
+              ⏱️
+            </div>
+            <h3 className="text-base font-black text-slate-800">Pending Online Request</h3>
+            <p className="text-xs text-slate-500 my-2">
+              Slot <span className="font-bold text-slate-800">{slotPendingNotice.time}</span> has a pending booking request from{' '}
+              <span className="font-bold text-slate-800">{slotPendingNotice.bookedByUserName || 'an online player'}</span>.
+            </p>
+            <p className="text-[11px] text-slate-400 mb-4">
+              Please switch to the <strong>Booking Approvals Queue</strong> tab to accept or reject this request.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setSlotPendingNotice(null)}
+                className="py-2.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setSlotPendingNotice(null);
+                  setActiveTab('bookings');
+                }}
+                className="py-2.5 bg-[#2E7D32] text-white font-bold text-xs rounded-xl shadow-md"
+              >
+                Go to Queue
               </button>
             </div>
           </div>

@@ -266,6 +266,8 @@ function getInitialDb() {
     bookings: [],
     reviews: [],
     notifications: [],
+    conversations: [],
+    chatMessages: [],
   };
 }
 
@@ -280,6 +282,8 @@ function readDb() {
   try {
     const raw = fs.readFileSync(DB_FILE, 'utf8');
     const db = JSON.parse(raw);
+    db.conversations = db.conversations || [];
+    db.chatMessages = db.chatMessages || [];
 
     // Auto-seed demo listings if turfs array is empty
     if (!Array.isArray(db.turfs) || db.turfs.length === 0) {
@@ -802,10 +806,11 @@ app.get('/api/turfs/:id/slots', (req, res) => {
   res.json(slots);
 });
 
-// Owner toggle slot status (block / unblock / available)
+// Owner toggle slot status (block / unblock / booked / available)
 app.post('/api/turfs/:id/slots/block', (req, res) => {
-  const { slotId, status } = req.body; // status: 'blocked' | 'available'
+  const { slotId, status, bookedByUserName, bookedByUserPhone } = req.body; // status: 'blocked' | 'booked' | 'available'
   const db = readDb();
+  db.slots = db.slots || [];
   const slot = db.slots.find((s: any) => s.id === slotId);
 
   if (!slot) {
@@ -816,10 +821,171 @@ app.post('/api/turfs/:id/slots/block', (req, res) => {
   if (status === 'available') {
     slot.bookedByUserId = undefined;
     slot.bookingId = undefined;
+    slot.bookedByUserName = undefined;
+    slot.bookedByUserPhone = undefined;
+  } else if (status === 'booked') {
+    slot.bookedByUserName = bookedByUserName || 'Offline / Walk-in Player';
+    if (bookedByUserPhone) slot.bookedByUserPhone = bookedByUserPhone;
+  } else if (status === 'blocked') {
+    slot.bookedByUserId = undefined;
+    slot.bookingId = undefined;
   }
 
   writeDb(db);
   res.json({ success: true, slot });
+});
+
+// --- CHAT & MESSAGING APIs ---
+app.get('/api/chat/conversations', (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required.' });
+  }
+  const db = readDb();
+  db.conversations = db.conversations || [];
+  const list = db.conversations.filter(
+    (c: any) => c.playerId === userId || c.ownerId === userId
+  );
+  list.sort(
+    (a: any, b: any) =>
+      new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime()
+  );
+  res.json(list);
+});
+
+app.get('/api/chat/messages/:conversationId', (req, res) => {
+  const { conversationId } = req.params;
+  const { userId } = req.query;
+  const db = readDb();
+  db.chatMessages = db.chatMessages || [];
+  db.conversations = db.conversations || [];
+
+  const messages = db.chatMessages.filter(
+    (m: any) => m.conversationId === conversationId
+  );
+
+  // Mark messages as read for userId
+  if (userId) {
+    let changed = false;
+    for (const m of messages) {
+      if (m.recipientId === userId && !m.read) {
+        m.read = true;
+        changed = true;
+      }
+    }
+    const conv = db.conversations.find((c: any) => c.id === conversationId);
+    if (conv) {
+      if (conv.playerId === userId && conv.unreadCountPlayer > 0) {
+        conv.unreadCountPlayer = 0;
+        changed = true;
+      }
+      if (conv.ownerId === userId && conv.unreadCountOwner > 0) {
+        conv.unreadCountOwner = 0;
+        changed = true;
+      }
+    }
+    if (changed) {
+      writeDb(db);
+    }
+  }
+
+  res.json(messages);
+});
+
+app.post('/api/chat/messages', (req, res) => {
+  const {
+    conversationId: providedConvId,
+    turfId,
+    turfName,
+    turfImage,
+    senderId,
+    senderName,
+    senderRole,
+    recipientId,
+    recipientName,
+    text,
+  } = req.body || {};
+
+  if (!senderId || !recipientId || !text || !text.trim()) {
+    return res.status(400).json({ error: 'senderId, recipientId, and text are required.' });
+  }
+
+  const db = readDb();
+  db.conversations = db.conversations || [];
+  db.chatMessages = db.chatMessages || [];
+
+  const playerId = senderRole === 'owner' ? recipientId : senderId;
+  const playerName = senderRole === 'owner' ? recipientName : senderName;
+  const ownerId = senderRole === 'owner' ? senderId : recipientId;
+  const ownerName = senderRole === 'owner' ? senderName : recipientName;
+
+  const convId = providedConvId || `conv_${turfId || 'general'}_${playerId}_${ownerId}`;
+  let conv = db.conversations.find((c: any) => c.id === convId);
+
+  const now = new Date().toISOString();
+
+  if (!conv) {
+    conv = {
+      id: convId,
+      turfId: turfId || '',
+      turfName: turfName || 'Sports Arena',
+      turfImage: turfImage || '',
+      playerId,
+      playerName,
+      ownerId,
+      ownerName,
+      lastMessage: text.trim(),
+      lastMessageAt: now,
+      unreadCountPlayer: senderRole === 'owner' ? 1 : 0,
+      unreadCountOwner: senderRole === 'user' ? 1 : 0,
+      updatedAt: now,
+    };
+    db.conversations.push(conv);
+  } else {
+    conv.lastMessage = text.trim();
+    conv.lastMessageAt = now;
+    conv.updatedAt = now;
+    if (turfName) conv.turfName = turfName;
+    if (turfImage) conv.turfImage = turfImage;
+    if (senderRole === 'owner') {
+      conv.unreadCountPlayer = (conv.unreadCountPlayer || 0) + 1;
+    } else {
+      conv.unreadCountOwner = (conv.unreadCountOwner || 0) + 1;
+    }
+  }
+
+  const newMsg = {
+    id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    conversationId: convId,
+    turfId: turfId || conv.turfId,
+    turfName: turfName || conv.turfName,
+    senderId,
+    senderName,
+    senderRole: senderRole || 'user',
+    recipientId,
+    recipientName,
+    text: text.trim(),
+    createdAt: now,
+    read: false,
+  };
+
+  db.chatMessages.push(newMsg);
+  writeDb(db);
+
+  res.status(201).json({ success: true, message: newMsg, conversation: conv });
+});
+
+app.get('/api/chat/unread-count', (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.json({ unreadCount: 0 });
+  const db = readDb();
+  db.conversations = db.conversations || [];
+  let total = 0;
+  for (const c of db.conversations) {
+    if (c.playerId === userId) total += c.unreadCountPlayer || 0;
+    if (c.ownerId === userId) total += c.unreadCountOwner || 0;
+  }
+  res.json({ unreadCount: total });
 });
 
 // Bookings Request API

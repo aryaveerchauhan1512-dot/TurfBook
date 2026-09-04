@@ -124,23 +124,73 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 Max Price / Hour
               </label>
               <span className="text-sm font-black text-[#2E7D32] dark:text-emerald-400">
-                ₹{filters.maxPrice} / hr
+                ₹{filters.maxPrice.toLocaleString('en-IN')} / hr
               </span>
             </div>
+
+            {/* Direct Number Input Box */}
+            <div className="mb-2.5">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100000"
+                  value={filters.maxPrice === 0 ? '' : filters.maxPrice}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? 0 : Number(e.target.value);
+                    onChangeFilters({
+                      ...filters,
+                      maxPrice: Math.min(100000, Math.max(0, val)),
+                    });
+                  }}
+                  placeholder="Enter custom max price (e.g. 3350)"
+                  className="w-full pl-7 pr-16 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#2E7D32]"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">
+                  / hr max
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Type exact amount (e.g. 3350) or slide below (up to ₹1,00,000 / 1 Lakh)
+              </p>
+            </div>
+
             <input
               type="range"
               min="500"
-              max="3500"
-              step="100"
+              max="100000"
+              step="250"
               value={filters.maxPrice}
               onChange={(e) =>
                 onChangeFilters({ ...filters, maxPrice: Number(e.target.value) })
               }
               className="w-full accent-[#2E7D32] h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer"
             />
-            <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+            <div className="flex justify-between text-[11px] text-slate-400 mt-1 font-medium">
               <span>₹500/hr</span>
-              <span>₹3,500/hr</span>
+              <span>₹50,000/hr</span>
+              <span>₹1,00,000/hr (1 Lakh)</span>
+            </div>
+
+            {/* Quick Price Shortcuts */}
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {[1500, 2500, 3350, 5000, 10000, 50000, 100000].map((pricePoint) => (
+                <button
+                  key={pricePoint}
+                  type="button"
+                  onClick={() => onChangeFilters({ ...filters, maxPrice: pricePoint })}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                    filters.maxPrice === pricePoint
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 border-[#2E7D32] text-[#2E7D32] dark:text-emerald-400'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  ₹{pricePoint.toLocaleString('en-IN')}
+                </button>
+              ))}
             </div>
           </div>
 

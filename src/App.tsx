@@ -26,6 +26,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { TermsOfServiceModal } from './components/TermsOfServiceModal';
 import { PitchSplitBanner } from './components/PitchSplitBanner';
 import { Footer } from './components/Footer';
+import { ChatModal } from './components/ChatModal';
 
 import {
   Turf,
@@ -47,6 +48,11 @@ export default function App() {
   const [showTOSModal, setShowTOSModal] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
+  // Chat state
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatInitialTurf, setChatInitialTurf] = useState<Turf | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
   // Dashboard modals
   const [showUserDashboard, setShowUserDashboard] = useState(false);
   const [showOwnerDashboard, setShowOwnerDashboard] = useState(false);
@@ -67,7 +73,7 @@ export default function App() {
     searchQuery: '',
     city: 'All',
     selectedSport: 'All',
-    maxPrice: 3500,
+    maxPrice: 100000,
     minRating: 0,
     isIndoorFilter: 'all',
     facilities: [],
@@ -101,7 +107,7 @@ export default function App() {
         params.append('isIndoor', filters.isIndoorFilter);
       if (filters.minRating > 0)
         params.append('minRating', filters.minRating.toString());
-      if (filters.maxPrice < 3500)
+      if (filters.maxPrice < 100000)
         params.append('maxPrice', filters.maxPrice.toString());
       if (filters.facilities.length > 0)
         params.append('facilities', filters.facilities.join(','));
@@ -175,6 +181,47 @@ export default function App() {
     }
   };
 
+  // Fetch Unread Chat Count
+  const fetchUnreadChatCount = async () => {
+    if (!user || !user.id) {
+      setUnreadChatCount(0);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/chat/unread-count?userId=${encodeURIComponent(user.id)}&role=${encodeURIComponent(user.role)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadChatCount(data.unreadCount || 0);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadChatCount();
+    const interval = setInterval(fetchUnreadChatCount, 5000);
+    return () => clearInterval(interval);
+  }, [user?.id, user?.role]);
+
+  // Open Chat Handler
+  const handleOpenChat = (targetTurf?: Turf | null) => {
+    if (!user) {
+      if (targetTurf) setChatInitialTurf(targetTurf);
+      setAuthRoleTarget('user');
+      setShowAuthModal(true);
+      return;
+    }
+    if (user.role === 'owner') {
+      setShowOwnerDashboard(true);
+    } else {
+      setChatInitialTurf(targetTurf || null);
+      setShowChatModal(true);
+    }
+  };
+
   // Auth Handlers
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -183,6 +230,8 @@ export default function App() {
       setSelectedTurf(pendingTurfForBooking);
       setShowDetailModal(true);
       setPendingTurfForBooking(null);
+    } else if (chatInitialTurf && loggedInUser.role !== 'owner') {
+      setShowChatModal(true);
     } else {
       if (loggedInUser.role === 'admin') {
         setShowAdminDashboard(true);
@@ -243,6 +292,8 @@ export default function App() {
         onOpenDashboard={handleOpenRoleDashboard}
         notifications={notifications}
         onMarkNotificationsRead={handleMarkNotificationsRead}
+        onOpenChat={() => handleOpenChat()}
+        unreadChatCount={unreadChatCount}
       />
 
       {/* Main Content Area */}
@@ -592,7 +643,7 @@ export default function App() {
             searchQuery: '',
             city: 'All',
             selectedSport: 'All',
-            maxPrice: 3500,
+            maxPrice: 100000,
             minRating: 0,
             isIndoorFilter: 'all',
             facilities: [],
@@ -617,6 +668,7 @@ export default function App() {
         onBookingCreated={() => {
           fetchNotifications();
         }}
+        onOpenChat={(turf) => handleOpenChat(turf)}
       />
 
       {/* User Dashboard */}
@@ -624,6 +676,7 @@ export default function App() {
         <UserDashboard
           user={user}
           onClose={() => setShowUserDashboard(false)}
+          onOpenChat={(turf) => handleOpenChat(turf)}
         />
       )}
 
@@ -640,6 +693,19 @@ export default function App() {
         <AdminDashboard
           user={user}
           onClose={() => setShowAdminDashboard(false)}
+        />
+      )}
+
+      {/* Player Chat Modal */}
+      {showChatModal && user && (
+        <ChatModal
+          isOpen={showChatModal}
+          onClose={() => {
+            setShowChatModal(false);
+            fetchUnreadChatCount();
+          }}
+          user={user}
+          initialTurf={chatInitialTurf}
         />
       )}
     </div>

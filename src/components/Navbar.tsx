@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   X,
   Sun,
-  Moon
+  Moon,
+  MessageCircle
 } from 'lucide-react';
 import { TurfBookLogo } from './TurfBookLogo';
 import { SportType, User, AppNotification } from '../types';
@@ -34,6 +35,8 @@ interface NavbarProps {
   onOpenDashboard: () => void;
   notifications: AppNotification[];
   onMarkNotificationsRead: () => void;
+  onOpenChat?: () => void;
+  unreadChatCount?: number;
 }
 
 const CITIES = ['All', 'Mumbai', 'Bangalore', 'Delhi NCR', 'Hyderabad', 'Pune', 'Goa', 'Chennai', 'Kolkata'];
@@ -66,6 +69,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenDashboard,
   notifications,
   onMarkNotificationsRead,
+  onOpenChat,
+  unreadChatCount = 0,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showCityMenu, setShowCityMenu] = useState(false);
@@ -146,6 +151,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             <SlidersHorizontal className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400" />
             <span className="hidden lg:inline">Filters</span>
           </button>
+
+          {/* Direct Messages Icon */}
+          {user && onOpenChat && (
+            <button
+              onClick={onOpenChat}
+              title="Direct Messages / Chat"
+              className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-300 hover:text-[#2E7D32] dark:hover:text-emerald-400 transition-colors relative"
+            >
+              <MessageCircle className="w-4 h-4" />
+              {(unreadChatCount || 0) > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#2E7D32] text-white text-[10px] font-black flex items-center justify-center animate-pulse">
+                  {unreadChatCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Notifications Bell */}
           {user && (
@@ -231,6 +252,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <Calendar className="w-4 h-4" />
                     <span>{user.role === 'owner' ? 'Owner Dashboard' : user.role === 'admin' ? 'Admin Panel' : 'My Bookings'}</span>
                   </button>
+                  {onOpenChat && (
+                    <button
+                      onClick={() => {
+                        onOpenChat();
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-green-50 dark:hover:bg-emerald-950/50 hover:text-[#2E7D32] dark:hover:text-emerald-300 transition-colors flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4" />
+                        <span>Direct Messages</span>
+                      </div>
+                      {(unreadChatCount || 0) > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-[#2E7D32] text-white text-[9px] font-black">
+                          {unreadChatCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       onLogout();

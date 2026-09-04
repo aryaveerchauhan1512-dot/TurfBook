@@ -11,6 +11,7 @@ import {
   Info,
   Navigation,
   MessageSquare,
+  MessageCircle,
   Sparkles,
   ChevronLeft,
   ChevronRight
@@ -24,6 +25,7 @@ interface TurfDetailModalProps {
   user: User | null;
   onOpenAuth: () => void;
   onBookingCreated: () => void;
+  onOpenChat?: (turf: Turf) => void;
 }
 
 export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
@@ -33,6 +35,7 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
   user,
   onOpenAuth,
   onBookingCreated,
+  onOpenChat,
 }) => {
   if (!isOpen || !turf) return null;
 
@@ -232,13 +235,22 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
           {/* Header Info */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
                 <span className="px-3 py-1 bg-emerald-50 text-[#2E7D32] rounded-xl text-xs font-bold uppercase">
                   {turf.isIndoor ? 'Indoor AC Arena' : 'Outdoor Turf'}
                 </span>
                 <span className="text-xs text-slate-500 font-semibold">
                   By {turf.ownerName}
                 </span>
+                {onOpenChat && (
+                  <button
+                    onClick={() => onOpenChat(turf)}
+                    className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#2E7D32] border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>Chat with Owner</span>
+                  </button>
+                )}
               </div>
               <h1 className="text-2xl font-black text-slate-800">{turf.name}</h1>
               <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
@@ -331,6 +343,17 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
               >
                 Open in Google Maps ➔
               </a>
+
+              {onOpenChat && (
+                <button
+                  type="button"
+                  onClick={() => onOpenChat(turf)}
+                  className="w-full mt-2 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-[#2E7D32] text-xs font-bold rounded-xl text-center flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Enquire / Chat with Owner</span>
+                </button>
+              )}
             </div>
           </div>
 

@@ -13,14 +13,15 @@ import {
   ShieldCheck,
   RefreshCw
 } from 'lucide-react';
-import { Booking, User } from '../types';
+import { Booking, User, Turf } from '../types';
 
 interface UserDashboardProps {
   user: User;
   onClose: () => void;
+  onOpenChat?: (turf: Turf) => void;
 }
 
-export const UserDashboard: React.FC<UserDashboardProps> = ({ user, onClose }) => {
+export const UserDashboard: React.FC<UserDashboardProps> = ({ user, onClose, onOpenChat }) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
@@ -246,6 +247,39 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ user, onClose }) =
 
                     <div className="text-right flex flex-col justify-between items-end gap-2">
                       <span className="text-lg font-black text-[#2E7D32]">₹{bk.totalAmount}</span>
+
+                      {/* Chat with Owner button */}
+                      {onOpenChat && (
+                        <button
+                          onClick={() =>
+                            onOpenChat({
+                              id: bk.turfId,
+                              name: bk.turfName,
+                              ownerId: bk.ownerId || '',
+                              ownerName: 'Turf Owner',
+                              address: '',
+                              city: '',
+                              sports: [bk.sport],
+                              facilities: [],
+                              pricePerHour: bk.totalAmount,
+                              images: [],
+                              rating: 5,
+                              reviewCount: 0,
+                              distanceKm: 0,
+                              isIndoor: false,
+                              operatingHours: { open: '06:00', close: '23:00' },
+                              upiId: '',
+                              ownerPhone: bk.ownerPhone,
+                              ownerPaymentQrUrl: bk.ownerPaymentQrUrl,
+                              createdAt: '',
+                            })
+                          }
+                          className="px-3 py-1.5 text-xs font-bold text-[#2E7D32] bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors flex items-center gap-1 border border-emerald-200"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Chat</span>
+                        </button>
+                      )}
 
                       {/* Cancel Button */}
                       {(isPending || isApproved) && (
