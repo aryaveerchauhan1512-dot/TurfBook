@@ -121,7 +121,11 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           turfId: turf.id,
+          turfData: turf,
           slotId: selectedSlot.id,
+          slotData: selectedSlot,
+          date: selectedSlot.date || selectedDate,
+          time: selectedSlot.time,
           userId: user.id,
           userName: user.name,
           userEmail: user.email,
@@ -137,7 +141,7 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
 
       setShowConfirmModal(false);
       setBookingSuccessMsg(
-        'Booking request submitted! Status changed to Pending Approval. Owner has been notified.'
+        "Booking request sent! Owner's contact has been automatically shared to your DM."
       );
       fetchSlots();
       onBookingCreated();
@@ -409,9 +413,24 @@ export const TurfDetailModal: React.FC<TurfDetailModalProps> = ({
             </div>
 
             {bookingSuccessMsg && (
-              <div className="p-3 bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs rounded-xl font-bold flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-700 shrink-0" />
-                <span>{bookingSuccessMsg}</span>
+              <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs rounded-2xl font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-[#2E7D32] shrink-0" />
+                  <span>{bookingSuccessMsg}</span>
+                </div>
+                {onOpenChat && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenChat(turf);
+                    }}
+                    className="px-3.5 py-1.5 bg-[#2E7D32] hover:bg-[#256629] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shrink-0 shadow-xs transition-colors"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>Open Chat with Owner</span>
+                  </button>
+                )}
               </div>
             )}
 

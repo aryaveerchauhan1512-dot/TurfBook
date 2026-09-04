@@ -24,7 +24,11 @@ import {
   Send,
   Ban,
   Check,
-  CheckCheck
+  CheckCheck,
+  PhoneCall,
+  Copy,
+  Store,
+  User as UserIcon
 } from 'lucide-react';
 import { Turf, Booking, User, Slot, TurfFacility, SportType, Conversation, ChatMessage } from '../types';
 import { ALL_INDIAN_DISTRICTS_FORMATTED } from '../data/indianDistricts';
@@ -87,6 +91,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedPhone(text);
+    setTimeout(() => setCopiedPhone(null), 2000);
+  };
 
   // Add / Edit Turf Modal
   const [showTurfModal, setShowTurfModal] = useState(false);
@@ -927,7 +938,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const target = ownerConversations.find((c) => c.playerId === bk.userId && c.turfId === bk.turfId) || ownerConversations.find((c) => c.playerId === bk.userId);
+                            if (target) {
+                              setSelectedConversation(target);
+                              fetchConversationMessages(target.id);
+                            }
+                            setActiveTab('messages');
+                          }}
+                          className="px-3.5 py-2 bg-emerald-100 hover:bg-emerald-200 text-[#2E7D32] font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>Chat / View DM</span>
+                        </button>
                         <button
                           onClick={() => setRejectBookingTarget(bk)}
                           className="px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-xl transition-colors"
@@ -973,12 +998,28 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                         <p className="text-xs font-bold text-[#2E7D32] mt-0.5">₹{bk.totalAmount}</p>
                       </div>
 
-                      <button
-                        onClick={() => setUnbookTarget(bk)}
-                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition-colors"
-                      >
-                        Unbook Slot (Customer Called)
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const target = ownerConversations.find((c) => c.playerId === bk.userId && c.turfId === bk.turfId) || ownerConversations.find((c) => c.playerId === bk.userId);
+                            if (target) {
+                              setSelectedConversation(target);
+                              fetchConversationMessages(target.id);
+                            }
+                            setActiveTab('messages');
+                          }}
+                          className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-[#2E7D32] text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>Chat / View DM</span>
+                        </button>
+                        <button
+                          onClick={() => setUnbookTarget(bk)}
+                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition-colors"
+                        >
+                          Unbook Slot (Customer Called)
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1244,13 +1285,100 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ user, onClose })
                               })}
                             </span>
                             <div
-                              className={`max-w-[80%] p-3 rounded-2xl text-xs leading-relaxed ${
+                              className={`max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed shadow-2xs ${
                                 isOwner
                                   ? 'bg-[#2E7D32] text-white rounded-tr-xs'
-                                  : 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs shadow-2xs'
+                                  : 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
                               }`}
                             >
-                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                              {msg.contactInfo || msg.messageType === 'player_contact' || msg.messageType === 'owner_contact' || msg.text.includes('CONTACT DETAILS:') ? (
+                                <div className="space-y-2.5">
+                                  <div className={`flex items-center justify-between gap-2 pb-2 border-b ${
+                                    isOwner ? 'border-emerald-500/50' : 'border-slate-200'
+                                  }`}>
+                                    <div className="flex items-center gap-1.5 font-black text-xs">
+                                      {msg.contactInfo?.type === 'player_contact' || msg.messageType === 'player_contact' || msg.text.includes('PLAYER CONTACT') ? (
+                                        <>
+                                          <UserIcon className="w-4 h-4 text-emerald-500 shrink-0" />
+                                          <span>Player Direct Contact</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Store className="w-4 h-4 text-emerald-500 shrink-0" />
+                                          <span>Owner Direct Contact</span>
+                                        </>
+                                      )}
+                                    </div>
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                      isOwner
+                                        ? 'bg-emerald-800 text-emerald-100'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}>
+                                      Direct DM
+                                    </span>
+                                  </div>
+
+                                  <p className="whitespace-pre-wrap leading-relaxed opacity-95 text-[11px]">
+                                    {msg.text}
+                                  </p>
+
+                                  {(() => {
+                                    const phoneVal = msg.contactInfo?.phone || msg.text.match(/Phone[^:]*:\s*([^\n]+)/i)?.[1]?.trim() || '';
+                                    const cleanPhone = phoneVal.replace(/[^0-9]/g, '');
+                                    const isPlayerCard = msg.contactInfo?.type === 'player_contact' || msg.messageType === 'player_contact' || msg.text.includes('PLAYER CONTACT');
+
+                                    if (!phoneVal) return null;
+
+                                    return (
+                                      <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-black/10 dark:border-white/10">
+                                        <a
+                                          href={`tel:${phoneVal}`}
+                                          className="flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[10px] shadow-xs transition-colors"
+                                        >
+                                          <PhoneCall className="w-3 h-3" />
+                                          <span>Call</span>
+                                        </a>
+                                        <a
+                                          href={`https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}?text=${encodeURIComponent(
+                                            isPlayerCard
+                                              ? `Hi ${msg.contactInfo?.name || selectedConversation.playerName}, this is the owner of ${selectedConversation.turfName}.`
+                                              : `Hi, this is regarding the turf booking.`
+                                          )}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-[10px] shadow-xs transition-colors"
+                                        >
+                                          <MessageCircle className="w-3 h-3" />
+                                          <span>WhatsApp</span>
+                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCopy(phoneVal)}
+                                          className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl font-bold text-[10px] transition-colors ${
+                                            isOwner
+                                              ? 'bg-emerald-800/80 hover:bg-emerald-900 text-emerald-100'
+                                              : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                                          }`}
+                                        >
+                                          {copiedPhone === phoneVal ? (
+                                            <>
+                                              <Check className="w-3 h-3 text-emerald-400" />
+                                              <span>Copied</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Copy className="w-3 h-3" />
+                                              <span>Copy</span>
+                                            </>
+                                          )}
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              ) : (
+                                <p className="whitespace-pre-wrap">{msg.text}</p>
+                              )}
                             </div>
                           </div>
                         );

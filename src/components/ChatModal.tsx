@@ -13,6 +13,8 @@ import {
   CheckCheck,
   RefreshCw,
   Phone,
+  PhoneCall,
+  Copy,
   MapPin,
   Calendar
 } from 'lucide-react';
@@ -57,6 +59,13 @@ export const ChatModal: React.FC<ChatModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedPhone(text);
+    setTimeout(() => setCopiedPhone(null), 2000);
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollTimerRef = useRef<any>(null);
@@ -552,15 +561,106 @@ export const ChatModal: React.FC<ChatModalProps> = ({
                           </div>
 
                           <div
-                            className={`max-w-[82%] sm:max-w-[70%] p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
+                            className={`max-w-[85%] sm:max-w-[75%] p-3.5 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
                               isMe
                                 ? 'bg-[#2E7D32] text-white rounded-tr-xs'
                                 : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-tl-xs'
                             }`}
                           >
-                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                            {msg.contactInfo || msg.messageType === 'owner_contact' || msg.messageType === 'player_contact' || msg.text.includes('CONTACT DETAILS:') ? (
+                              <div className="space-y-2.5">
+                                {/* Card Header */}
+                                <div className={`flex items-center justify-between gap-2 pb-2 border-b ${
+                                  isMe ? 'border-emerald-500/50' : 'border-slate-200 dark:border-slate-700'
+                                }`}>
+                                  <div className="flex items-center gap-1.5 font-black text-xs">
+                                    {msg.contactInfo?.type === 'owner_contact' || msg.messageType === 'owner_contact' || msg.text.includes('OWNER CONTACT') ? (
+                                      <>
+                                        <Store className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        <span>Owner Contact Shared</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <UserIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        <span>Player Contact Shared</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                    isMe
+                                      ? 'bg-emerald-800/60 text-emerald-100'
+                                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                                  }`}>
+                                    Direct DM
+                                  </span>
+                                </div>
+
+                                {/* Text Overview */}
+                                <p className="whitespace-pre-wrap leading-relaxed opacity-95 text-[11px]">
+                                  {msg.text}
+                                </p>
+
+                                {/* Action Buttons */}
+                                {(() => {
+                                  const phoneVal = msg.contactInfo?.phone || msg.text.match(/Phone[^:]*:\s*([^\n]+)/i)?.[1]?.trim() || '';
+                                  const cleanPhone = phoneVal.replace(/[^0-9]/g, '');
+                                  const isOwnerCard = msg.contactInfo?.type === 'owner_contact' || msg.messageType === 'owner_contact' || msg.text.includes('OWNER CONTACT');
+
+                                  if (!phoneVal) return null;
+
+                                  return (
+                                    <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-black/10 dark:border-white/10">
+                                      <a
+                                        href={`tel:${phoneVal}`}
+                                        className="flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[10px] shadow-xs transition-colors"
+                                      >
+                                        <PhoneCall className="w-3 h-3" />
+                                        <span>Call</span>
+                                      </a>
+                                      <a
+                                        href={`https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}?text=${encodeURIComponent(
+                                          isOwnerCard
+                                            ? `Hi, I sent a booking request on TurfBook for ${msg.contactInfo?.turfName || msg.turfName}.`
+                                            : `Hi, this is regarding your booking request for ${msg.contactInfo?.turfName || msg.turfName}.`
+                                        )}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex items-center justify-center gap-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-[10px] shadow-xs transition-colors"
+                                      >
+                                        <MessageCircle className="w-3 h-3" />
+                                        <span>WhatsApp</span>
+                                      </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopy(phoneVal)}
+                                        className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl font-bold text-[10px] transition-colors ${
+                                          isMe
+                                            ? 'bg-emerald-800/80 hover:bg-emerald-900 text-emerald-100'
+                                            : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100'
+                                        }`}
+                                      >
+                                        {copiedPhone === phoneVal ? (
+                                          <>
+                                            <Check className="w-3 h-3 text-emerald-400" />
+                                            <span>Copied</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Copy className="w-3 h-3" />
+                                            <span>Copy</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap">{msg.text}</p>
+                            )}
+
                             <div
-                              className={`flex items-center justify-end gap-1 mt-1 text-[9px] ${
+                              className={`flex items-center justify-end gap-1 mt-1.5 text-[9px] ${
                                 isMe ? 'text-emerald-200' : 'text-slate-400'
                               }`}
                             >

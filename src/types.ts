@@ -158,6 +158,20 @@ export interface FilterState {
   facilities: TurfFacility[];
 }
 
+export interface ContactInfo {
+  type: 'owner_contact' | 'player_contact';
+  name: string;
+  phone: string;
+  email?: string;
+  upi?: string;
+  turfName?: string;
+  turfAddress?: string;
+  date?: string;
+  time?: string;
+  sport?: string;
+  price?: number;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId: string;
@@ -171,6 +185,8 @@ export interface ChatMessage {
   text: string;
   createdAt: string;
   read?: boolean;
+  messageType?: 'text' | 'owner_contact' | 'player_contact';
+  contactInfo?: ContactInfo;
 }
 
 export interface Conversation {

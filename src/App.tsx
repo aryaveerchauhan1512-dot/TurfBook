@@ -225,6 +225,7 @@ export default function App() {
   // Auth Handlers
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
+    fetchTurfs();
 
     if (pendingTurfForBooking) {
       setSelectedTurf(pendingTurfForBooking);
@@ -253,6 +254,7 @@ export default function App() {
     setPendingTurfForBooking(null);
     localStorage.removeItem('turfbook_user');
     sessionStorage.removeItem('turfbook_user');
+    fetchTurfs();
   };
 
   // Open Dashboard based on role
@@ -684,7 +686,10 @@ export default function App() {
       {showOwnerDashboard && user && (
         <OwnerDashboard
           user={user}
-          onClose={() => setShowOwnerDashboard(false)}
+          onClose={() => {
+            setShowOwnerDashboard(false);
+            fetchTurfs();
+          }}
         />
       )}
 

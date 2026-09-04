@@ -102,7 +102,7 @@
       "facilities": [
         "Parking"
       ],
-      "isUnposted": true,
+      "isUnposted": false,
       "createdAt": "2026-09-04T07:37:24.603Z"
     }
   ],
@@ -542,5 +542,26 @@
   ],
   "bookings": [],
   "reviews": [],
-  "notifications": []
+  "notifications": [
+    {
+      "id": "notif-1788510986452-1",
+      "recipientUserId": "owner-1788505244437",
+      "title": "New Booking Request ⚽",
+      "message": "Rahul Sharma requested slot 19:00 - 20:00 on 2026-09-04 for Aloo Turf.",
+      "date": "2026-09-04T08:36:26.452Z",
+      "read": false,
+      "type": "booking_request"
+    },
+    {
+      "id": "notif-1788510986452-2",
+      "recipientUserId": "user-test-player",
+      "title": "Booking Request Sent 📩",
+      "message": "Your booking request for Aloo Turf on 2026-09-04 (19:00 - 20:00) is pending owner approval.",
+      "date": "2026-09-04T08:36:26.452Z",
+      "read": false,
+      "type": "booking_request"
+    }
+  ],
+  "conversations": [],
+  "chatMessages": []
 }

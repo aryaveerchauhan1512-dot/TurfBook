@@ -877,21 +877,63 @@ app.get('/api/chat/unread-count', (req, res) => {
 
 // Bookings Request API
 app.post('/api/bookings/request', (req, res) => {
-  const { turfId, slotId, userId, userName, userEmail, userPhone, sport } = req.body || {};
+  const { turfId, slotId, userId, userName, userEmail, userPhone, sport, turfData, slotData, date, time } = req.body || {};
   const db = readDb();
   db.turfs = db.turfs || [];
   db.slots = db.slots || [];
   db.bookings = db.bookings || [];
+  db.conversations = db.conversations || [];
+  db.chatMessages = db.chatMessages || [];
   db.notifications = db.notifications || [];
+  db.users = db.users || [];
 
-  const turf = db.turfs.find((t: any) => t.id === turfId);
+  // Robust lookup for turf (convert both sides to string, or self-heal from turfData)
+  let turf = db.turfs.find((t: any) => String(t.id) === String(turfId) || (turfData && String(t.id) === String(turfData.id)));
+
+  if (!turf && turfData) {
+    turf = {
+      ...turfData,
+      id: turfId || turfData.id,
+      isUnposted: false,
+    };
+    db.turfs.push(turf);
+    writeDb(db);
+  }
+
   if (!turf) {
     return res.status(404).json({ error: 'Turf not found.' });
   }
 
-  const slot = db.slots.find((s: any) => s.id === slotId);
+  if (turf.isUnposted) {
+    turf.isUnposted = false;
+  }
+
+  // Robust lookup for slot (or self-heal from slotData)
+  let slot = db.slots.find((s: any) => String(s.id) === String(slotId));
+  if (!slot && slotData) {
+    slot = {
+      ...slotData,
+      id: slotId || slotData.id,
+      turfId: turf.id,
+      status: 'available',
+    };
+    db.slots.push(slot);
+    writeDb(db);
+  }
+
   if (!slot) {
-    return res.status(404).json({ error: 'Slot not found.' });
+    const targetDate = date || req.body?.date || new Date().toISOString().split('T')[0];
+    const targetTime = time || req.body?.time || '18:00 - 19:00';
+    slot = {
+      id: slotId || `slot-${turf.id}-${targetDate}-${Date.now()}`,
+      turfId: turf.id,
+      date: targetDate,
+      time: targetTime,
+      price: turf.pricePerHour || 1500,
+      status: 'available',
+    };
+    db.slots.push(slot);
+    writeDb(db);
   }
 
   if (slot.status !== 'available') {
@@ -903,10 +945,10 @@ app.post('/api/bookings/request', (req, res) => {
 
   const newBooking = {
     id: bookingId,
-    turfId,
+    turfId: turf.id,
     turfName: turf.name,
     turfImage: (turf.images && turf.images[0]) || '',
-    slotId,
+    slotId: slot.id,
     date: slot.date,
     time: slot.time,
     userId,
@@ -950,8 +992,121 @@ app.post('/api/bookings/request', (req, res) => {
     type: 'booking_request'
   });
 
+  // --- AUTOMATIC BIDIRECTIONAL CONTACT SHARING IN CHAT / DM ---
+  const ownerUser = db.users.find((u: any) => String(u.id) === String(turf.ownerId));
+  const rawOwnerPhone = decryptText(ownerUser?.phone || turf.ownerPhone || '+91 98765 43210');
+  const ownerDisplayName = turf.ownerName || ownerUser?.businessName || ownerUser?.name || 'Turf Owner';
+  const ownerDisplayEmail = ownerUser?.email || turf.ownerEmail || 'contact@turfbook.in';
+  const ownerUpi = ownerUser?.upiId || turf.upiId || '';
+
+  const rawPlayerPhone = userPhone || '+91 98765 43210';
+  const playerDisplayName = userName || 'Player';
+  const playerDisplayEmail = userEmail || '';
+
+  const convId = `conv_${turf.id}_${userId}_${turf.ownerId}`;
+  let conv = db.conversations.find((c: any) => c.id === convId);
+  const now = new Date().toISOString();
+
+  if (!conv) {
+    conv = {
+      id: convId,
+      turfId: turf.id,
+      turfName: turf.name,
+      turfImage: (turf.images && turf.images[0]) || '',
+      playerId: userId,
+      playerName: playerDisplayName,
+      playerEmail: playerDisplayEmail,
+      ownerId: turf.ownerId,
+      ownerName: ownerDisplayName,
+      lastMessage: `Booking Request: ${slot.date} (${slot.time}) - Contact Exchanged`,
+      lastMessageAt: now,
+      unreadCountPlayer: 1,
+      unreadCountOwner: 1,
+      updatedAt: now,
+    };
+    db.conversations.push(conv);
+  } else {
+    conv.turfName = turf.name;
+    if (turf.images && turf.images[0]) conv.turfImage = turf.images[0];
+    conv.lastMessage = `Booking Request: ${slot.date} (${slot.time}) - Contact Exchanged`;
+    conv.lastMessageAt = now;
+    conv.unreadCountPlayer = (conv.unreadCountPlayer || 0) + 1;
+    conv.unreadCountOwner = (conv.unreadCountOwner || 0) + 1;
+    conv.updatedAt = now;
+  }
+
+  // 1. Owner's contact automatically sent to Player's DM
+  const ownerContactMsg = {
+    id: `msg-${Date.now()}-owner-contact`,
+    conversationId: convId,
+    turfId: turf.id,
+    turfName: turf.name,
+    senderId: turf.ownerId,
+    senderName: `${ownerDisplayName} (Owner)`,
+    senderRole: 'owner',
+    recipientId: userId,
+    recipientName: playerDisplayName,
+    text: `📋 Booking Request Sent for ${turf.name}\n📅 Date: ${slot.date} | ⏰ Slot: ${slot.time} | ⚽ Sport: ${sport || (turf.sports && turf.sports[0]) || 'Sports'} | 💰 ₹${slot.price}\n\n📞 OWNER CONTACT DETAILS:\n• Name: ${ownerDisplayName}\n• Phone / WhatsApp: ${rawOwnerPhone}\n• Email: ${ownerDisplayEmail}\n• Address: ${turf.address}, ${turf.city}${ownerUpi ? `\n• UPI ID: ${ownerUpi}` : ''}\n\nYou can call or WhatsApp the owner directly for instant confirmation and directions.`,
+    createdAt: now,
+    read: false,
+    messageType: 'owner_contact',
+    contactInfo: {
+      type: 'owner_contact',
+      name: ownerDisplayName,
+      phone: rawOwnerPhone,
+      email: ownerDisplayEmail,
+      upi: ownerUpi,
+      turfName: turf.name,
+      turfAddress: `${turf.address}, ${turf.city}`,
+      date: slot.date,
+      time: slot.time,
+      sport: sport || (turf.sports && turf.sports[0]) || 'Sports',
+      price: slot.price,
+    },
+  };
+  db.chatMessages.push(ownerContactMsg);
+
+  // 2. Player's contact automatically sent to Owner's DM
+  const playerContactMsg = {
+    id: `msg-${Date.now() + 50}-player-contact`,
+    conversationId: convId,
+    turfId: turf.id,
+    turfName: turf.name,
+    senderId: userId,
+    senderName: playerDisplayName,
+    senderRole: 'user',
+    recipientId: turf.ownerId,
+    recipientName: ownerDisplayName,
+    text: `📩 New Booking Request for ${turf.name}\n📅 Date: ${slot.date} | ⏰ Slot: ${slot.time} | ⚽ Sport: ${sport || (turf.sports && turf.sports[0]) || 'Sports'} | 💰 ₹${slot.price}\n\n👤 PLAYER CONTACT DETAILS:\n• Name: ${playerDisplayName}\n• Phone / WhatsApp: ${rawPlayerPhone}\n• Email: ${playerDisplayEmail || 'Not provided'}\n\nPlayer is waiting for your booking approval.`,
+    createdAt: new Date(Date.now() + 50).toISOString(),
+    read: false,
+    messageType: 'player_contact',
+    contactInfo: {
+      type: 'player_contact',
+      name: playerDisplayName,
+      phone: rawPlayerPhone,
+      email: playerDisplayEmail,
+      turfName: turf.name,
+      date: slot.date,
+      time: slot.time,
+      sport: sport || (turf.sports && turf.sports[0]) || 'Sports',
+      price: slot.price,
+    },
+  };
+  db.chatMessages.push(playerContactMsg);
+
   writeDb(db);
-  res.json({ success: true, booking: newBooking });
+  res.json({
+    success: true,
+    booking: newBooking,
+    conversationId: convId,
+    ownerContact: {
+      name: ownerDisplayName,
+      phone: rawOwnerPhone,
+      email: ownerDisplayEmail,
+      upi: ownerUpi,
+    },
+  });
 });
 
 // Owner Approve Booking
