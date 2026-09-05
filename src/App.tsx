@@ -214,12 +214,8 @@ export default function App() {
       setShowAuthModal(true);
       return;
     }
-    if (user.role === 'owner') {
-      setShowOwnerDashboard(true);
-    } else {
-      setChatInitialTurf(targetTurf || null);
-      setShowChatModal(true);
-    }
+    setChatInitialTurf(targetTurf || null);
+    setShowChatModal(true);
   };
 
   // Auth Handlers
@@ -701,7 +697,7 @@ export default function App() {
         />
       )}
 
-      {/* Player Chat Modal */}
+      {/* Chat / DM Modal */}
       {showChatModal && user && (
         <ChatModal
           isOpen={showChatModal}
@@ -709,6 +705,7 @@ export default function App() {
             setShowChatModal(false);
             fetchUnreadChatCount();
           }}
+          currentUser={user}
           user={user}
           initialTurf={chatInitialTurf}
         />

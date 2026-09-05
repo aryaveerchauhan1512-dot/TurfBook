@@ -365,10 +365,15 @@ app.post('/api/auth/register', (req, res) => {
 
   const cleanEmail = email.trim().toLowerCase();
   const db = readDb();
-  const existingUser = db.users.find((u: any) => u.email.toLowerCase() === cleanEmail);
+  const targetRole = role === 'owner' ? 'owner' : 'user';
+  const existingUser = db.users.find(
+    (u: any) => u.email.toLowerCase() === cleanEmail && u.role === targetRole
+  );
 
   if (existingUser) {
-    return res.status(400).json({ error: 'An account with this email already exists. Please Sign In.' });
+    return res.status(400).json({
+      error: `An account with this email already exists as a ${targetRole === 'owner' ? 'Turf Owner' : 'Player'}. Please Sign In.`
+    });
   }
 
   // Check OTP verification
@@ -380,10 +385,10 @@ app.post('/api/auth/register', (req, res) => {
   }
 
   const newUser = {
-    id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+    id: `${targetRole === 'owner' ? 'owner' : 'user'}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
     name: name.trim(),
     email: cleanEmail,
-    role: role === 'owner' ? 'owner' : 'user',
+    role: targetRole,
     phone: phone ? phone.trim() : '',
     businessName: businessName ? businessName.trim() : undefined,
     paymentQrUrl: paymentQrUrl || undefined,
@@ -401,21 +406,45 @@ app.post('/api/auth/register', (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body || {};
+  const { email, password, expectedRole } = req.body || {};
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+  const hashedPassword = hashPassword(password);
+  const normalizedExpectedRole = expectedRole === 'owner' ? 'owner' : expectedRole === 'user' ? 'user' : null;
   const db = readDb();
-  const user = db.users.find((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
 
-  if (!user) {
-    return res.status(401).json({ error: 'No account found with this email. Please register.' });
+  // 1. Look for matching user with expectedRole
+  let user = db.users.find(
+    (u: any) =>
+      u.email.toLowerCase() === cleanEmail &&
+      u.passwordHash === hashedPassword &&
+      (normalizedExpectedRole ? u.role === normalizedExpectedRole : true)
+  );
+
+  // 2. If not found with expected role, see if user exists with other role
+  if (!user && normalizedExpectedRole) {
+    const otherRoleUser = db.users.find(
+      (u: any) => u.email.toLowerCase() === cleanEmail && u.passwordHash === hashedPassword
+    );
+    if (otherRoleUser) {
+      return res.status(400).json({
+        error: `No ${normalizedExpectedRole === 'owner' ? 'Turf Owner' : 'Player'} account found for this email. However, a ${otherRoleUser.role === 'owner' ? 'Turf Owner' : 'Player'} account exists. Please switch the account toggle above or create a new ${normalizedExpectedRole === 'owner' ? 'Turf Owner' : 'Player'} account.`
+      });
+    }
   }
 
-  const hashedPassword = hashPassword(password);
-  if (user.passwordHash !== hashedPassword) {
-    return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+  // 3. Fallback to any user matching credentials
+  if (!user) {
+    user = db.users.find(
+      (u: any) => u.email.toLowerCase() === cleanEmail && u.passwordHash === hashedPassword
+    );
+  }
+
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid email or password.' });
   }
 
   if (user.isBanned || user.isSuspended) {
@@ -730,9 +759,29 @@ app.get('/api/chat/conversations', (req, res) => {
   }
   const db = readDb();
   db.conversations = db.conversations || [];
-  const list = db.conversations.filter(
-    (c: any) => c.playerId === userId || c.ownerId === userId
-  );
+  db.users = db.users || [];
+
+  const cleanUserId = String(userId).trim();
+  const currentUser = db.users.find((u: any) => String(u.id) === cleanUserId);
+  const userEmail = currentUser?.email ? currentUser.email.toLowerCase().trim() : '';
+
+  const list = db.conversations.filter((c: any) => {
+    const isPlayer =
+      String(c.playerId) === cleanUserId ||
+      (userEmail && c.playerEmail && c.playerEmail.toLowerCase().trim() === userEmail);
+    const isOwner =
+      String(c.ownerId) === cleanUserId ||
+      (userEmail && c.ownerEmail && c.ownerEmail.toLowerCase().trim() === userEmail);
+
+    if (currentUser?.role === 'owner') {
+      return isOwner;
+    }
+    if (currentUser?.role === 'user') {
+      return isPlayer;
+    }
+    return isPlayer || isOwner;
+  });
+
   list.sort(
     (a: any, b: any) =>
       new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime()
@@ -1016,8 +1065,11 @@ app.post('/api/bookings/request', (req, res) => {
       playerId: userId,
       playerName: playerDisplayName,
       playerEmail: playerDisplayEmail,
+      playerPhone: rawPlayerPhone,
       ownerId: turf.ownerId,
       ownerName: ownerDisplayName,
+      ownerEmail: ownerDisplayEmail,
+      ownerPhone: rawOwnerPhone,
       lastMessage: `Booking Request: ${slot.date} (${slot.time}) - Contact Exchanged`,
       lastMessageAt: now,
       unreadCountPlayer: 1,
@@ -1028,6 +1080,12 @@ app.post('/api/bookings/request', (req, res) => {
   } else {
     conv.turfName = turf.name;
     if (turf.images && turf.images[0]) conv.turfImage = turf.images[0];
+    conv.playerName = playerDisplayName || conv.playerName;
+    conv.playerEmail = playerDisplayEmail || conv.playerEmail;
+    conv.playerPhone = rawPlayerPhone || conv.playerPhone;
+    conv.ownerName = ownerDisplayName || conv.ownerName;
+    conv.ownerEmail = ownerDisplayEmail || conv.ownerEmail;
+    conv.ownerPhone = rawOwnerPhone || conv.ownerPhone;
     conv.lastMessage = `Booking Request: ${slot.date} (${slot.time}) - Contact Exchanged`;
     conv.lastMessageAt = now;
     conv.unreadCountPlayer = (conv.unreadCountPlayer || 0) + 1;

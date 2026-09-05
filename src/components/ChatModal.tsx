@@ -23,12 +23,14 @@ import { User, Turf, Conversation, ChatMessage } from '../types';
 interface ChatModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUser: User | null;
+  currentUser?: User | null;
+  user?: User | null;
   initialTurf?: Turf | null;
   initialOwnerId?: string;
   initialOwnerName?: string;
   initialRecipientId?: string;
   initialRecipientName?: string;
+  initialConversationId?: string | null;
   onOpenBookingModal?: (turf: Turf) => void;
 }
 
@@ -43,14 +45,17 @@ const PLAYER_SUGGESTED_PROMPTS = [
 export const ChatModal: React.FC<ChatModalProps> = ({
   isOpen,
   onClose,
-  currentUser,
+  currentUser: propsCurrentUser,
+  user,
   initialTurf,
   initialOwnerId,
   initialOwnerName,
   initialRecipientId,
   initialRecipientName,
+  initialConversationId,
   onOpenBookingModal,
 }) => {
+  const currentUser = propsCurrentUser || user || null;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -127,30 +132,60 @@ export const ChatModal: React.FC<ChatModalProps> = ({
       const convList = await fetchConversations();
       setLoadingConversations(false);
 
-      // Check if user clicked "Chat with Owner" for a specific turf or person
-      if (initialTurf || initialRecipientId || initialOwnerId) {
+      // Check if user clicked "Chat with Owner" for a specific turf or person, or if a conversation was passed
+      if (initialConversationId || initialTurf || initialRecipientId || initialOwnerId) {
         const targetOwnerId = initialTurf?.ownerId || initialOwnerId || initialRecipientId || '';
-        const targetOwnerName = initialTurf?.ownerName || initialOwnerName || initialRecipientName || 'Venue Owner';
+        const targetOwnerName = initialTurf?.ownerName || initialOwnerName || initialRecipientName || 'Turf Owner';
         const targetTurfId = initialTurf?.id || '';
         const targetTurfName = initialTurf?.name || 'Sports Arena';
         const targetTurfImage = initialTurf?.images?.[0] || '';
 
-        // Find existing conversation
-        const existing = convList.find(
-          (c: Conversation) =>
-            (c.turfId === targetTurfId && (c.ownerId === targetOwnerId || c.playerId === targetOwnerId)) ||
-            (c.playerId === currentUser.id && c.ownerId === targetOwnerId) ||
-            (c.ownerId === currentUser.id && c.playerId === targetOwnerId)
-        );
+        // Find existing conversation with robust matching
+        const existing = convList.find((c: Conversation) => {
+          if (initialConversationId && c.id === initialConversationId) return true;
+          if (targetTurfId && c.turfId === targetTurfId) {
+            if (currentUser.role === 'owner') {
+              return c.ownerId === currentUser.id;
+            }
+            return c.playerId === currentUser.id;
+          }
+          if (targetOwnerId) {
+            return (
+              (c.ownerId === targetOwnerId && c.playerId === currentUser.id) ||
+              (c.playerId === targetOwnerId && c.ownerId === currentUser.id)
+            );
+          }
+          return false;
+        });
 
         if (existing) {
           setActiveConversation(existing);
           fetchMessages(existing.id);
+        } else if (initialConversationId) {
+          // If conversation ID was provided (e.g. from just-sent booking request)
+          fetchMessages(initialConversationId);
+          const isUserOwner = currentUser.role === 'owner';
+          const draftConv: Conversation = {
+            id: initialConversationId,
+            turfId: targetTurfId,
+            turfName: targetTurfName,
+            turfImage: targetTurfImage,
+            playerId: isUserOwner ? targetOwnerId : currentUser.id,
+            playerName: isUserOwner ? targetOwnerName : currentUser.name,
+            ownerId: isUserOwner ? currentUser.id : targetOwnerId,
+            ownerName: isUserOwner ? currentUser.name : targetOwnerName,
+            lastMessage: 'Booking Request - Contact Exchanged',
+            lastMessageAt: new Date().toISOString(),
+            unreadCountPlayer: 0,
+            unreadCountOwner: 0,
+            updatedAt: new Date().toISOString(),
+          };
+          setActiveConversation(draftConv);
         } else {
           // Setup a temporary active draft conversation
           const isUserOwner = currentUser.role === 'owner';
           const draftConv: Conversation = {
-            id: `conv_${targetTurfId || 'direct'}_${currentUser.id}_${targetOwnerId}`,
+            id: `conv_${targetTurfId || 'direct'}_${currentUser.id}_${targetOwnerId || 'owner'}`,
             turfId: targetTurfId,
             turfName: targetTurfName,
             turfImage: targetTurfImage,
@@ -175,7 +210,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({
     };
 
     initChat();
-  }, [isOpen, currentUser?.id, initialTurf?.id, initialOwnerId, initialRecipientId]);
+  }, [isOpen, currentUser?.id, initialTurf?.id, initialOwnerId, initialRecipientId, initialConversationId]);
 
   // Periodic polling for real-time message updates
   useEffect(() => {
